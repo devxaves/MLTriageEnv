@@ -1,0 +1,332 @@
+[
+  {
+    "id": "pipeline_001",
+    "description": "Scaler fitted on full dataset including test set — classic data leakage",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Model achieves 95% val accuracy but only 72% on held-out test",
+    "artifact": "ML Pipeline: Customer Churn Prediction\n\nStage 1 - data_ingestion:\n  Source: PostgreSQL database\n  Records: 10,000 customer records\n  Features: 15 numerical, 5 categorical\n  Target: churn (binary)\n  Status: OK — all records loaded successfully\n\nStage 2 - preprocessing:\n  Null handling: mean imputation for numerical, mode for categorical\n  StandardScaler fitted on FULL dataset (train + val + test)\n  Encoding: OneHotEncoder for categorical features\n  Status: Complete\n\nStage 3 - feature_engineering:\n  Features created: tenure_months * monthly_charges = total_value\n  Feature selection: top 15 by mutual information\n  Status: OK\n\nStage 4 - train_val_split:\n  Strategy: random 70/15/15 split\n  Stratified by target: yes\n  Status: OK\n\nStage 5 - model_training:\n  Model: GradientBoosting(n_estimators=200, max_depth=5)\n  Training time: 45 seconds\n  Status: Complete\n\nStage 6 - evaluation:\n  Val Accuracy: 95.2% | Val F1: 0.94\n  Test Accuracy: 72.1% | Test F1: 0.68\n  Metric: accuracy\n  Status: Large gap between val and test performance",
+    "faulty_stages": ["preprocessing", "evaluation"],
+    "bugs": {
+      "preprocessing": {
+        "bug_type": "fit_on_test",
+        "description": "StandardScaler fitted on full dataset including test set, leaking test distribution into training",
+        "fix": "fit StandardScaler on training data only, then transform val and test sets"
+      },
+      "evaluation": {
+        "bug_type": "metric_mismatch",
+        "description": "Using accuracy metric for potentially imbalanced churn prediction",
+        "fix": "use F1 score or AUC-ROC as primary metric for imbalanced classification"
+      }
+    },
+    "valid_stages": ["data_ingestion", "feature_engineering"]
+  },
+  {
+    "id": "pipeline_002",
+    "description": "Time series split done randomly instead of temporally — destroys ordering",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Model performs well on validation but fails on future data",
+    "artifact": "ML Pipeline: Stock Price Direction Prediction\n\nStage 1 - data_ingestion:\n  Source: Yahoo Finance API\n  Records: 5,000 daily records (2005-2024)\n  Features: OHLCV + 12 technical indicators\n  Target: next_day_direction (up/down)\n  Status: OK\n\nStage 2 - preprocessing:\n  Null handling: forward fill for price data\n  Normalization: MinMaxScaler per feature\n  Status: OK\n\nStage 3 - feature_engineering:\n  Created features: RSI_14, MACD, Bollinger_Bands, SMA_20, SMA_50, EMA_12\n  Rolling window: 20 days\n  Status: OK\n\nStage 4 - train_val_split:\n  Strategy: random 80/20 shuffle split\n  shuffle=True applied before split\n  Stratified by target: yes\n  Status: Complete — split looks balanced\n\nStage 5 - model_training:\n  Model: LSTM(hidden=128, layers=2, dropout=0.2)\n  Epochs: 50 | Batch size: 64\n  Status: Converged at epoch 35\n\nStage 6 - evaluation:\n  Val Accuracy: 68.2% | Val F1: 0.67\n  Live trading accuracy (Jan 2024): 49.8%\n  Status: Model fails in production",
+    "faulty_stages": ["train_val_split", "feature_engineering"],
+    "bugs": {
+      "train_val_split": {
+        "bug_type": "wrong_split_strategy",
+        "description": "Random shuffle split on time-series data causes future data to leak into training set",
+        "fix": "use temporal split — train on data before cutoff date, validate on data after"
+      },
+      "feature_engineering": {
+        "bug_type": "target_leakage",
+        "description": "Rolling features computed before split can include future values near boundaries",
+        "fix": "compute rolling features independently on train and val sets after splitting"
+      }
+    },
+    "valid_stages": ["data_ingestion", "preprocessing"]
+  },
+  {
+    "id": "pipeline_003",
+    "description": "Mean imputation on skewed data and evaluation on training set",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Model shows 99% accuracy but fails on new data",
+    "artifact": "ML Pipeline: Insurance Fraud Detection\n\nStage 1 - data_ingestion:\n  Source: CSV files from claims system\n  Records: 50,000 insurance claims\n  Features: 25 mixed-type features\n  Target: is_fraud (binary, 2% positive)\n  Status: OK\n\nStage 2 - preprocessing:\n  Null handling: mean imputation for claim_amount (highly right-skewed, mean=$45,000, median=$2,500)\n  Null handling: mean imputation for age (normally distributed)\n  Encoding: LabelEncoder for all categorical features\n  Status: Complete\n\nStage 3 - feature_engineering:\n  Features: claim_to_income_ratio, claim_frequency, days_since_last_claim\n  Scaling: StandardScaler on all features\n  Status: OK\n\nStage 4 - train_val_split:\n  Strategy: stratified 80/20 split\n  Status: OK\n\nStage 5 - model_training:\n  Model: RandomForest(n_estimators=500, max_depth=None)\n  Training time: 120 seconds\n  Status: Complete\n\nStage 6 - evaluation:\n  Evaluated on: TRAINING SET (not validation set)\n  Train Accuracy: 99.8% | Train F1: 0.99 | Train AUC: 0.999\n  Status: Metrics look excellent",
+    "faulty_stages": ["preprocessing", "evaluation"],
+    "bugs": {
+      "preprocessing": {
+        "bug_type": "missing_value_wrong_strategy",
+        "description": "Mean imputation on highly right-skewed claim_amount ($45k mean vs $2.5k median) introduces bias",
+        "fix": "use median imputation for skewed features like claim_amount"
+      },
+      "evaluation": {
+        "bug_type": "evaluation_on_train",
+        "description": "Model evaluated on training set instead of held-out validation set, giving inflated metrics",
+        "fix": "evaluate on held-out validation/test set, not the training data"
+      }
+    },
+    "valid_stages": ["data_ingestion", "train_val_split"]
+  },
+  {
+    "id": "pipeline_004",
+    "description": "Label encoding for nominal categories and class imbalance ignored",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Model accuracy is 96% but fraud recall is near zero",
+    "artifact": "ML Pipeline: Credit Card Fraud Detection\n\nStage 1 - data_ingestion:\n  Source: Transaction database\n  Records: 284,807 transactions\n  Features: V1-V28 (PCA), Amount, Time\n  Target: is_fraud (binary, 0.17% positive — 492 fraud cases)\n  Status: OK\n\nStage 2 - preprocessing:\n  Null handling: none needed (no nulls)\n  Scaling: StandardScaler on Amount and Time\n  Status: OK\n\nStage 3 - feature_engineering:\n  Encoding: LabelEncoder for merchant_category (electronics=0, groceries=1, travel=2, dining=3, gas=4)\n  Note: merchant_category is NOMINAL (no natural ordering)\n  New features: hour_of_day, day_of_week from timestamp\n  Status: Complete\n\nStage 4 - train_val_split:\n  Strategy: stratified 80/20 split\n  No class balancing applied\n  Status: OK\n\nStage 5 - model_training:\n  Model: LogisticRegression(C=1.0, max_iter=1000)\n  No class_weight parameter set\n  Training time: 8 seconds\n  Status: Converged\n\nStage 6 - evaluation:\n  Accuracy: 99.83% | Precision: 0.91 | Recall: 0.02 | F1: 0.04\n  Confusion: TP=10, FP=1, FN=482, TN=284314\n  Status: Model predicts almost everything as non-fraud",
+    "faulty_stages": ["feature_engineering", "model_training"],
+    "bugs": {
+      "feature_engineering": {
+        "bug_type": "label_encoding_instead_of_onehot",
+        "description": "LabelEncoder applied to nominal merchant_category — imposes false ordinal relationship",
+        "fix": "use one-hot encoding for nominal categorical features like merchant_category"
+      },
+      "model_training": {
+        "bug_type": "class_imbalance_ignored",
+        "description": "No class balancing strategy for 99.83%/0.17% class split — model learns to predict majority class",
+        "fix": "use class_weight='balanced' or oversample minority class with SMOTE"
+      }
+    },
+    "valid_stages": ["data_ingestion", "preprocessing"]
+  },
+  {
+    "id": "pipeline_005",
+    "description": "Target leakage through feature and wrong scaler for bounded data",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Suspiciously high val performance that doesn't generalize",
+    "artifact": "ML Pipeline: Loan Default Prediction\n\nStage 1 - data_ingestion:\n  Source: Banking database\n  Records: 30,000 loan applications\n  Features: income, loan_amount, credit_score, employment_years, debt_to_income, payment_history_score, default_probability_estimate\n  Target: defaulted (binary)\n  Status: OK\n\nStage 2 - preprocessing:\n  Null handling: median imputation\n  Outliers: no handling\n  Status: OK\n\nStage 3 - feature_engineering:\n  Scaling: StandardScaler on ALL features including probability features (bounded 0-1)\n  Features used: income, loan_amount, credit_score, employment_years, debt_to_income, payment_history_score, default_probability_estimate\n  Note: default_probability_estimate was computed AFTER knowing if the loan defaulted\n  Status: Complete\n\nStage 4 - train_val_split:\n  Strategy: random 80/20 split, stratified\n  Status: OK\n\nStage 5 - model_training:\n  Model: XGBoost(n_estimators=300, max_depth=6, learning_rate=0.1)\n  Status: Converged\n\nStage 6 - evaluation:\n  Val AUC: 0.997 | Val F1: 0.96\n  Feature importance: default_probability_estimate = 0.72 (dominates)\n  Status: Suspiciously high performance driven by one feature",
+    "faulty_stages": ["feature_engineering", "preprocessing"],
+    "bugs": {
+      "feature_engineering": {
+        "bug_type": "target_leakage",
+        "description": "default_probability_estimate is derived from the target variable — including it leaks future information",
+        "fix": "remove default_probability_estimate from features — it was computed using the target label"
+      },
+      "preprocessing": {
+        "bug_type": "wrong_scaler_applied",
+        "description": "StandardScaler on bounded probability features (0-1) distorts their meaning",
+        "fix": "use MinMaxScaler for bounded features like probability scores and ratios"
+      }
+    },
+    "valid_stages": ["data_ingestion", "train_val_split"]
+  },
+  {
+    "id": "pipeline_006",
+    "description": "Duplicates not removed causing leakage, and preprocessing fit on full data",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Val metrics unexpectedly close to train metrics — model seems too good",
+    "artifact": "ML Pipeline: Patient Readmission Prediction\n\nStage 1 - data_ingestion:\n  Source: Hospital EHR database\n  Records: 20,000 patient records\n  Duplicates: 3,400 exact duplicate rows (17%) due to data export bug\n  Features: 30 clinical features\n  Target: readmitted_30days (binary)\n  Status: Loaded successfully (duplicates not flagged)\n\nStage 2 - preprocessing:\n  Null handling: KNN imputation (k=5)\n  KNN imputer fitted on FULL dataset (before split)\n  Encoding: OneHotEncoder for diagnosis codes\n  Status: Complete\n\nStage 3 - feature_engineering:\n  Features: length_of_stay, num_procedures, num_medications, comorbidity_index\n  Scaling: RobustScaler\n  Status: OK\n\nStage 4 - train_val_split:\n  Strategy: random 80/20 split\n  Note: Duplicate rows can appear in BOTH train and val sets\n  Status: Complete\n\nStage 5 - model_training:\n  Model: GradientBoosting(n_estimators=150, max_depth=4)\n  Status: Converged\n\nStage 6 - evaluation:\n  Train Accuracy: 89.2% | Val Accuracy: 88.5%\n  Test Accuracy (external): 71.3%\n  Status: Small train-val gap but large generalization gap",
+    "faulty_stages": ["data_ingestion", "preprocessing"],
+    "bugs": {
+      "data_ingestion": {
+        "bug_type": "duplicate_rows_not_removed",
+        "description": "3,400 duplicate rows (17%) leak across train/val split, inflating validation metrics",
+        "fix": "remove duplicate rows before any splitting to prevent data leakage"
+      },
+      "preprocessing": {
+        "bug_type": "preprocessing_after_split",
+        "description": "KNN imputer fitted on full dataset including val/test data, leaking statistical information",
+        "fix": "fit KNN imputer on training data only, transform val and test separately"
+      }
+    },
+    "valid_stages": ["feature_engineering", "model_training"]
+  },
+  {
+    "id": "pipeline_007",
+    "description": "Outliers not handled and accuracy used for imbalanced dataset",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "High accuracy but poor performance on minority class",
+    "artifact": "ML Pipeline: Network Intrusion Detection\n\nStage 1 - data_ingestion:\n  Source: Network traffic logs\n  Records: 100,000 connection records\n  Features: duration, src_bytes, dst_bytes, count, srv_count, and 35 more\n  Target: attack_type (normal=97%, attack=3%)\n  Outliers: duration column has values up to 58,329 (mean=47, median=0)\n  Status: OK\n\nStage 2 - preprocessing:\n  Null handling: none (no nulls)\n  Outlier handling: NONE — extreme values left as-is\n  Encoding: OneHotEncoder for protocol_type, service, flag\n  Status: Complete (no outlier treatment)\n\nStage 3 - feature_engineering:\n  Feature selection: variance threshold (remove constant features)\n  Scaling: StandardScaler (heavily affected by outliers)\n  Status: OK\n\nStage 4 - train_val_split:\n  Strategy: stratified 80/20 split\n  Status: OK\n\nStage 5 - model_training:\n  Model: SVM(kernel='rbf', C=1.0)\n  Training time: 300 seconds\n  Status: Converged\n\nStage 6 - evaluation:\n  Accuracy: 97.2%\n  Attack class: Precision=0.45, Recall=0.12, F1=0.19\n  Normal class: Precision=0.98, Recall=0.99, F1=0.99\n  Metric used: accuracy (not appropriate for 97/3 split)\n  Status: High accuracy masks poor attack detection",
+    "faulty_stages": ["preprocessing", "evaluation"],
+    "bugs": {
+      "preprocessing": {
+        "bug_type": "outlier_not_handled",
+        "description": "Extreme outliers in duration (max=58329, median=0) distort StandardScaler and model training",
+        "fix": "clip outliers using IQR method or remove extreme values before scaling"
+      },
+      "evaluation": {
+        "bug_type": "metric_mismatch",
+        "description": "Accuracy metric for 97/3 class split gives misleading 97.2% — model barely detects attacks",
+        "fix": "use F1 score, AUC-ROC, or precision-recall as primary metric for imbalanced classification"
+      }
+    },
+    "valid_stages": ["data_ingestion", "train_val_split"]
+  },
+  {
+    "id": "pipeline_008",
+    "description": "Shuffle before split on time series and fit_on_test for encoder",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Model shows good val metrics but fails on new monthly data",
+    "artifact": "ML Pipeline: Monthly Revenue Forecasting\n\nStage 1 - data_ingestion:\n  Source: Sales database\n  Records: 36,000 daily sales records (2014-2024)\n  Features: date, store_id, product_category, units_sold, price, promotions, weather\n  Target: monthly_revenue\n  Status: OK\n\nStage 2 - preprocessing:\n  Null handling: forward fill\n  Categorical encoding: OrdinalEncoder fitted on FULL dataset\n  Status: Complete\n\nStage 3 - feature_engineering:\n  Created: month, quarter, year, rolling_3month_avg, yoy_growth\n  Lag features: revenue_lag_1, revenue_lag_3, revenue_lag_12\n  Status: OK\n\nStage 4 - train_val_split:\n  Data shuffled before split: YES (np.random.shuffle applied)\n  Strategy: 80/20 split after shuffling\n  Status: Complete\n\nStage 5 - model_training:\n  Model: LightGBM(n_estimators=500, learning_rate=0.05)\n  Status: Converged at boosting round 312\n\nStage 6 - evaluation:\n  Val RMSE: $1,234 | Val MAPE: 3.2%\n  Jan 2025 prediction error: $15,678 (MAPE: 42.1%)\n  Status: Severe performance drop on future data",
+    "faulty_stages": ["train_val_split", "preprocessing"],
+    "bugs": {
+      "train_val_split": {
+        "bug_type": "shuffle_before_split",
+        "description": "Random shuffling of time-series data destroys temporal ordering and creates future leakage",
+        "fix": "do not shuffle time series data — use chronological split with training before validation period"
+      },
+      "preprocessing": {
+        "bug_type": "fit_on_test",
+        "description": "OrdinalEncoder fitted on full dataset including future data, leaking category distributions",
+        "fix": "fit encoder on training data only, handle unseen categories in val/test with fallback"
+      }
+    },
+    "valid_stages": ["data_ingestion", "feature_engineering"]
+  },
+  {
+    "id": "pipeline_009",
+    "description": "Wrong aggregation in features and wrong scaler for sparse data",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Feature importance shows unexpected patterns, predictions are off",
+    "artifact": "ML Pipeline: Customer Lifetime Value Prediction\n\nStage 1 - data_ingestion:\n  Source: E-commerce transaction history\n  Records: 500,000 transactions from 50,000 customers\n  Features: customer_id, transaction_date, amount, category, quantity\n  Target: lifetime_value_next_year\n  Status: OK\n\nStage 2 - preprocessing:\n  Aggregation per customer: \n    total_transactions = MEAN(transaction_count)  [should be SUM]\n    total_spend = MEAN(amount)  [should be SUM]\n    avg_basket_size = MEAN(quantity)  [correct]\n  Null handling: zero fill\n  Status: Complete\n\nStage 3 - feature_engineering:\n  Encoding: OneHotEncoder for top 20 categories (creates sparse matrix)\n  Scaling: StandardScaler on ALL features including sparse one-hot columns\n  Note: 80% of feature values are exactly 0.0 (sparse after one-hot)\n  Status: Complete\n\nStage 4 - train_val_split:\n  Strategy: random 80/20 split\n  Status: OK\n\nStage 5 - model_training:\n  Model: Ridge(alpha=1.0)\n  Status: Converged\n\nStage 6 - evaluation:\n  Val RMSE: $890 | Val R2: 0.34\n  Expected R2 for this data: > 0.60\n  Feature importance: total_transactions has near-zero importance (unexpected)\n  Status: Underperforming expectations",
+    "faulty_stages": ["preprocessing", "feature_engineering"],
+    "bugs": {
+      "preprocessing": {
+        "bug_type": "wrong_aggregation",
+        "description": "total_transactions and total_spend use MEAN instead of SUM — they represent per-transaction averages, not totals",
+        "fix": "use SUM aggregation for total_transactions and total_spend to capture actual customer value"
+      },
+      "feature_engineering": {
+        "bug_type": "wrong_scaler_applied",
+        "description": "StandardScaler on sparse one-hot encoded features destroys sparsity and distorts feature distances",
+        "fix": "use MinMaxScaler or no scaling for sparse features, or scale numerical and categorical features separately"
+      }
+    },
+    "valid_stages": ["data_ingestion", "train_val_split"]
+  },
+  {
+    "id": "pipeline_010",
+    "description": "Off-by-one in sequence window and evaluation on train data",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Model shows near-perfect metrics that seem too good to be true",
+    "artifact": "ML Pipeline: Energy Consumption Forecasting\n\nStage 1 - data_ingestion:\n  Source: Smart meter readings\n  Records: 365,000 hourly readings (1 year)\n  Features: temperature, humidity, hour, day_of_week, is_holiday, consumption\n  Target: consumption_next_hour\n  Status: OK\n\nStage 2 - preprocessing:\n  Null handling: linear interpolation\n  Scaling: MinMaxScaler\n  Status: OK\n\nStage 3 - feature_engineering:\n  Sequence window: 24 hours lookback\n  Window construction: features[t-24:t+1] -> target[t+1]\n  Note: window includes t+0 which IS the target hour's features\n  This means: consumption at time t is included in features predicting consumption at t+1\n  But consumption[t] is ALSO the target shifted by 1\n  Status: Complete\n\nStage 4 - train_val_split:\n  Strategy: temporal split (first 80% train, last 20% val)\n  Status: OK\n\nStage 5 - model_training:\n  Model: Transformer(d_model=64, nheads=4, layers=2)\n  Epochs: 30 | LR: 0.001\n  Status: Converged\n\nStage 6 - evaluation:\n  Evaluated on: training set (not validation set)\n  Train RMSE: 0.02 kWh | Train R2: 0.999\n  Status: Metrics appear perfect (suspiciously so)",
+    "faulty_stages": ["feature_engineering", "evaluation"],
+    "bugs": {
+      "feature_engineering": {
+        "bug_type": "off_by_one_in_sequences",
+        "description": "Sequence window [t-24:t+1] includes features at time t, which contains near-identical information to target at t+1",
+        "fix": "use window [t-24:t] to exclude the current timestep, preventing trivial prediction from autocorrelation"
+      },
+      "evaluation": {
+        "bug_type": "evaluation_on_train",
+        "description": "Metrics computed on training data, not the held-out temporal validation set",
+        "fix": "evaluate on the temporal validation set (last 20%) to assess true generalization"
+      }
+    },
+    "valid_stages": ["data_ingestion", "preprocessing"]
+  },
+  {
+    "id": "pipeline_011",
+    "description": "Target leakage through derived feature and missing value strategy",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "One feature has 0.95 correlation with target — model oversimplified",
+    "artifact": "ML Pipeline: Employee Attrition Prediction\n\nStage 1 - data_ingestion:\n  Source: HR database\n  Records: 15,000 employee records\n  Features: age, salary, department, performance_score, tenure, satisfaction_survey, exit_interview_score\n  Target: left_company (binary)\n  Status: OK\n\nStage 2 - preprocessing:\n  Null handling: mean imputation for satisfaction_survey (30% missing — mostly from employees who left)\n  Note: satisfaction_survey is missing BECAUSE employees left — missingness is informative\n  Encoding: OneHotEncoder for department\n  Status: Complete\n\nStage 3 - feature_engineering:\n  Features used: all original + exit_interview_score\n  Note: exit_interview_score is only available AFTER an employee has left\n  Correlation with target: 0.95\n  Status: Complete\n\nStage 4 - train_val_split:\n  Strategy: stratified 80/20 split\n  Status: OK\n\nStage 5 - model_training:\n  Model: RandomForest(n_estimators=100)\n  Status: Converged\n\nStage 6 - evaluation:\n  Val AUC: 0.98 | Val F1: 0.95\n  Feature importance: exit_interview_score = 0.60, satisfaction_survey = 0.15\n  Status: Model dominated by leaked features",
+    "faulty_stages": ["feature_engineering", "preprocessing"],
+    "bugs": {
+      "feature_engineering": {
+        "bug_type": "target_leakage",
+        "description": "exit_interview_score is only available after an employee leaves — using it leaks the target",
+        "fix": "remove exit_interview_score from features — it's a post-event variable that leaks the target"
+      },
+      "preprocessing": {
+        "bug_type": "missing_value_wrong_strategy",
+        "description": "Mean imputation for satisfaction_survey ignores that missingness is informative (missing = left company)",
+        "fix": "create a is_survey_missing binary feature instead of mean imputation, or use median and add missing indicator"
+      }
+    },
+    "valid_stages": ["data_ingestion", "train_val_split"]
+  },
+  {
+    "id": "pipeline_012",
+    "description": "Fit-transform leak in preprocessing and wrong split for grouped data",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Model performance drops 15% between cross-validation and production",
+    "artifact": "ML Pipeline: Medical Diagnosis Prediction\n\nStage 1 - data_ingestion:\n  Source: Hospital medical records\n  Records: 25,000 lab results from 5,000 patients (avg 5 visits each)\n  Features: blood_pressure, glucose, cholesterol, BMI, age, smoking, family_history\n  Target: diabetes_diagnosis (binary)\n  Status: OK\n\nStage 2 - preprocessing:\n  PowerTransformer (Yeo-Johnson) fitted on ALL data (train + val + test)\n  Null handling: median imputation\n  Status: Complete\n\nStage 3 - feature_engineering:\n  BMI categories: underweight, normal, overweight, obese\n  Interaction features: glucose * BMI, age * cholesterol\n  Status: OK\n\nStage 4 - train_val_split:\n  Strategy: random 80/20 split at ROW level\n  Note: Same patient can appear in BOTH train and val sets (multiple visits)\n  No grouping by patient_id\n  Status: Complete\n\nStage 5 - model_training:\n  Model: XGBoost(n_estimators=200, max_depth=4)\n  Status: Converged\n\nStage 6 - evaluation:\n  Val AUC: 0.92 | Val F1: 0.87\n  New patient AUC: 0.77 | New patient F1: 0.71\n  Status: Significant drop on truly unseen patients",
+    "faulty_stages": ["preprocessing", "train_val_split"],
+    "bugs": {
+      "preprocessing": {
+        "bug_type": "fit_on_test",
+        "description": "PowerTransformer fitted on all data including test set, leaking distribution information",
+        "fix": "fit PowerTransformer on training data only, then transform validation and test sets"
+      },
+      "train_val_split": {
+        "bug_type": "wrong_split_strategy",
+        "description": "Random row-level split allows same patient in train and val — patient-level leakage",
+        "fix": "use GroupKFold or GroupShuffleSplit with patient_id as the group to ensure patient-level separation"
+      }
+    },
+    "valid_stages": ["data_ingestion", "feature_engineering"]
+  },
+  {
+    "id": "pipeline_013",
+    "description": "Class imbalance ignored and StandardScaler on probability features",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "99.5% accuracy but the model is useless for detecting rare events",
+    "artifact": "ML Pipeline: Rare Disease Screening\n\nStage 1 - data_ingestion:\n  Source: National health survey\n  Records: 200,000 patient screening results\n  Features: 40 biomarkers, demographics, family history\n  Target: has_rare_disease (binary, 0.5% positive — 1,000 cases)\n  Status: OK\n\nStage 2 - preprocessing:\n  Null handling: median imputation\n  Scaling: StandardScaler on biomarker_probability_scores (bounded 0-1)\n  Status: Complete\n\nStage 3 - feature_engineering:\n  PCA: reduced 40 biomarkers to 10 components\n  New features: age_group, BMI_category\n  Status: OK\n\nStage 4 - train_val_split:\n  Strategy: stratified 80/20 split\n  No class balancing applied\n  Status: OK\n\nStage 5 - model_training:\n  Model: LogisticRegression(max_iter=1000)\n  No class_weight parameter\n  No oversampling/undersampling\n  Status: Converged\n\nStage 6 - evaluation:\n  Accuracy: 99.5% | Recall: 0.03 | F1: 0.06\n  Model detects only 6 out of 200 disease cases in validation\n  Status: Model predicts 'healthy' for nearly all samples",
+    "faulty_stages": ["model_training", "preprocessing"],
+    "bugs": {
+      "model_training": {
+        "bug_type": "class_imbalance_ignored",
+        "description": "No class balancing for 99.5%/0.5% split — model learns to always predict majority class",
+        "fix": "use class_weight='balanced', or apply SMOTE oversampling, or use cost-sensitive learning"
+      },
+      "preprocessing": {
+        "bug_type": "wrong_scaler_applied",
+        "description": "StandardScaler on probability scores (bounded 0-1) shifts mean and can produce negative values",
+        "fix": "use MinMaxScaler for bounded probability features to preserve their 0-1 range semantics"
+      }
+    },
+    "valid_stages": ["data_ingestion", "feature_engineering"]
+  },
+  {
+    "id": "pipeline_014",
+    "description": "Wrong aggregation for count features and scaler fitted after split but on train+val",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Feature values don't match expected domain ranges",
+    "artifact": "ML Pipeline: Ad Click-Through Rate Prediction\n\nStage 1 - data_ingestion:\n  Source: Ad serving logs\n  Records: 1,000,000 ad impressions\n  Features: user_id, ad_id, position, device, hour, day_of_week, historical_clicks\n  Target: clicked (binary)\n  Status: OK\n\nStage 2 - preprocessing:\n  User-level aggregation:\n    user_total_clicks = MEAN(click_count)  [should be SUM — we need total clicks, not average]\n    user_total_impressions = MEAN(impression_count)  [should be SUM]\n    user_ctr = user_total_clicks / user_total_impressions  [correct formula but wrong inputs]\n  Status: Complete\n\nStage 3 - feature_engineering:\n  Encoding: OneHotEncoder for device, TargetEncoder for ad_id\n  Scaling: RobustScaler fitted on train + validation combined\n  Status: Complete\n\nStage 4 - train_val_split:\n  Strategy: temporal split (chronological)\n  Status: OK\n\nStage 5 - model_training:\n  Model: LightGBM(n_estimators=100, learning_rate=0.1)\n  Status: Converged\n\nStage 6 - evaluation:\n  Val AUC: 0.71 | Val LogLoss: 0.42\n  Expected AUC for this data: > 0.78\n  user_total_clicks feature importance: near zero (unexpected)\n  Status: Underperforming",
+    "faulty_stages": ["preprocessing", "feature_engineering"],
+    "bugs": {
+      "preprocessing": {
+        "bug_type": "wrong_aggregation",
+        "description": "User click and impression counts use MEAN instead of SUM aggregation — loses magnitude information",
+        "fix": "use SUM aggregation for user_total_clicks and user_total_impressions to capture actual counts"
+      },
+      "feature_engineering": {
+        "bug_type": "preprocessing_after_split",
+        "description": "RobustScaler fitted on train + validation combined, leaking validation statistics into training",
+        "fix": "fit scaler on training data only, then transform validation data separately"
+      }
+    },
+    "valid_stages": ["data_ingestion", "model_training"]
+  },
+  {
+    "id": "pipeline_015",
+    "description": "Duplicate rows and ordinal encoding for nominal data",
+    "difficulty": "hard",
+    "total_issues": 2,
+    "symptom": "Model confidence is uncalibrated, predictions cluster around certain values",
+    "artifact": "ML Pipeline: Restaurant Rating Prediction\n\nStage 1 - data_ingestion:\n  Source: Restaurant review dataset\n  Records: 80,000 reviews (12,000 are exact duplicates from web scraping)\n  Duplicates: 15% of data is duplicated\n  Features: cuisine_type, price_range, location, service_score, food_score, ambiance_score\n  Target: overall_rating (1-5 stars)\n  Status: OK (duplicates not detected)\n\nStage 2 - preprocessing:\n  Null handling: mode imputation\n  Status: OK\n\nStage 3 - feature_engineering:\n  Encoding: OrdinalEncoder for cuisine_type (italian=0, chinese=1, indian=2, mexican=3, japanese=4, french=5, thai=6)\n  Note: cuisine_type is NOMINAL — no natural ordering between cuisines\n  Scaling: StandardScaler on numerical features\n  Status: Complete\n\nStage 4 - train_val_split:\n  Strategy: random 80/20 split\n  Note: Same duplicate reviews can appear in both train and val\n  Status: Complete\n\nStage 5 - model_training:\n  Model: GradientBoosting(n_estimators=200)\n  Status: Converged\n\nStage 6 - evaluation:\n  Val RMSE: 0.31 | Val R2: 0.89\n  External test RMSE: 0.52 | External test R2: 0.74\n  Status: Overly optimistic validation metrics",
+    "faulty_stages": ["data_ingestion", "feature_engineering"],
+    "bugs": {
+      "data_ingestion": {
+        "bug_type": "duplicate_rows_not_removed",
+        "description": "12,000 duplicate reviews (15%) leak across train/val split, inflating validation metrics",
+        "fix": "remove duplicate rows before splitting to prevent data leakage across train/val sets"
+      },
+      "feature_engineering": {
+        "bug_type": "label_encoding_instead_of_onehot",
+        "description": "OrdinalEncoder imposes false ordering on nominal cuisine_type (italian < chinese < indian has no meaning)",
+        "fix": "use one-hot encoding for nominal categorical features like cuisine_type"
+      }
+    },
+    "valid_stages": ["preprocessing", "model_training"]
+  }
+]

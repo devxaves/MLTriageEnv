@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openenv-ml-triage-env"
+version = "1.0.0"
+description = "OpenEnv RL environment for ML pipeline debugging — config errors, log analysis, and pipeline debugging"
+requires-python = ">=3.10"
+dependencies = [
+    "openenv-core[core]>=0.2.2",
+    "fastapi>=0.115.0",
+    "pydantic>=2.0.0",
+    "uvicorn>=0.24.0",
+    "requests>=2.31.0",
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "httpx>=0.27.0",
+]
+
+[project.scripts]
+server = "ml_triage_env.server.app:main"
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+    "ml_triage_env",
+    "ml_triage_env.server",
+    "ml_triage_env.tasks",
+    "ml_triage_env.graders",
+]
+[tool.setuptools.package-dir]
+"ml_triage_env" = "."
+"ml_triage_env.server" = "server"
+"ml_triage_env.tasks" = "tasks"
+"ml_triage_env.graders" = "graders"

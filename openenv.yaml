@@ -1,0 +1,32 @@
+spec_version: 1
+name: ml_triage_env
+version: "1.0.0"
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
+description: >
+  An OpenEnv environment for ML engineering triage tasks covering config
+  repair, training-log diagnosis, and multi-stage pipeline debugging.
+author: Anirban
+tags:
+  - openenv
+  - ml-debugging
+  - ml-engineering
+  - agent-evaluation
+tasks:
+  - id: task1_config
+    name: Config Fixer
+    difficulty: easy
+    description: Repair broken ML training configurations.
+  - id: task2_logs
+    name: Log Diagnostician
+    difficulty: medium
+    description: Diagnose training failures from realistic logs.
+  - id: task3_pipeline
+    name: Pipeline Debugger
+    difficulty: hard
+    description: Find silent bugs in a multi-stage ML pipeline.
+hardware:
+  cpu: 2
+  memory: 8

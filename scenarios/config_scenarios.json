@@ -1,0 +1,372 @@
+[
+  {
+    "id": "config_001",
+    "description": "Image classification config with invalid learning rate and wrong optimizer name",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# ResNet-50 Image Classification Training Config\nmodel:\n  architecture: resnet50\n  num_classes: 10\n  pretrained: true\n  hidden_size: 512\n\ntraining:\n  learning_rate: 100.0\n  optimizer: adm\n  batch_size: 64\n  epochs: 50\n  weight_decay: 0.0001\n  momentum: 0.9\n  gradient_clip: 1.0\n\ndata:\n  dataset: cifar10\n  val_split: 0.2\n  augmentation: true\n  num_workers: 4\n\nscheduler:\n  type: cosine\n  warmup_epochs: 5\n  min_lr: 0.00001\n\nlogging:\n  log_interval: 10\n  save_interval: 5\n  seed: 42",
+    "broken_fields": {
+      "learning_rate": {
+        "wrong_value": "100.0",
+        "correct_value": "0.001",
+        "issue_type": "value_out_of_range"
+      },
+      "optimizer": {
+        "wrong_value": "adm",
+        "correct_value": "adam",
+        "issue_type": "typo"
+      },
+      "val_split": {
+        "wrong_value": "0.2",
+        "correct_value": "0.2",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["batch_size", "weight_decay", "seed"]
+  },
+  {
+    "id": "config_002",
+    "description": "Text classification config with negative batch size and dropout > 1.0",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# BERT Text Classification Config\nmodel:\n  architecture: bert-base-uncased\n  num_classes: 5\n  hidden_size: 768\n  num_layers: 12\n  dropout: 1.5\n  max_seq_len: 512\n\ntraining:\n  learning_rate: 0.00002\n  optimizer: adamw\n  batch_size: -32\n  epochs: 10\n  weight_decay: 0.01\n  gradient_clip: 1.0\n  warmup_steps: 100\n\ndata:\n  dataset: imdb\n  val_split: 0.1\n  num_workers: 2\n  shuffle: true\n\nscheduler:\n  type: linear\n  warmup_ratio: 0.1\n\nlogging:\n  log_interval: 50\n  seed: 123\n  eval_steps: 500\n  loss_function: cross_entropy",
+    "broken_fields": {
+      "dropout": {
+        "wrong_value": "1.5",
+        "correct_value": "0.1",
+        "issue_type": "value_out_of_range"
+      },
+      "batch_size": {
+        "wrong_value": "-32",
+        "correct_value": "32",
+        "issue_type": "negative_value"
+      },
+      "loss_function": {
+        "wrong_value": "cross_entropy",
+        "correct_value": "cross_entropy",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["learning_rate", "max_seq_len", "warmup_steps"]
+  },
+  {
+    "id": "config_003",
+    "description": "Regression model with zero epochs and string weight_decay",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# Housing Price Regression Config\nmodel:\n  architecture: mlp\n  input_dim: 13\n  hidden_dims: [256, 128, 64]\n  output_dim: 1\n  activation: relu\n  dropout: 0.0\n\ntraining:\n  learning_rate: 0.001\n  optimizer: adam\n  batch_size: 128\n  epochs: 0\n  weight_decay: none\n  gradient_clip: 5.0\n\ndata:\n  dataset: boston_housing\n  val_split: 0.2\n  normalize: true\n  num_workers: 0\n\nloss:\n  function: mse\n  reduction: mean\n\nscheduler:\n  type: step\n  step_size: 30\n  gamma: 0.1\n\nlogging:\n  seed: 7\n  log_interval: 20\n  save_best: true",
+    "broken_fields": {
+      "epochs": {
+        "wrong_value": "0",
+        "correct_value": "100",
+        "issue_type": "zero_value"
+      },
+      "weight_decay": {
+        "wrong_value": "none",
+        "correct_value": "0.0001",
+        "issue_type": "wrong_type"
+      },
+      "dropout": {
+        "wrong_value": "0.0",
+        "correct_value": "0.0",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["dropout", "batch_size", "num_workers"]
+  },
+  {
+    "id": "config_004",
+    "description": "Object detection config with negative learning rate and hidden_size of 0",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# YOLOv5 Object Detection Config\nmodel:\n  architecture: yolov5s\n  num_classes: 80\n  hidden_size: 0\n  input_size: 640\n  anchors: auto\n\ntraining:\n  learning_rate: -0.001\n  optimizer: sgd\n  batch_size: 16\n  epochs: 300\n  weight_decay: 0.0005\n  momentum: 0.937\n  gradient_clip: 10.0\n\ndata:\n  dataset: coco\n  val_split: 0.1\n  mosaic: true\n  num_workers: 8\n\naugmentation:\n  hsv_h: 0.015\n  hsv_s: 0.7\n  hsv_v: 0.4\n  flip_lr: 0.5\n\nscheduler:\n  type: cosine\n  warmup_epochs: 3\n  min_lr: 0.0001\n\nlogging:\n  seed: 0\n  save_interval: 10\n  eval_interval: 5",
+    "broken_fields": {
+      "learning_rate": {
+        "wrong_value": "-0.001",
+        "correct_value": "0.01",
+        "issue_type": "negative_value"
+      },
+      "hidden_size": {
+        "wrong_value": "0",
+        "correct_value": "256",
+        "issue_type": "zero_value"
+      },
+      "momentum": {
+        "wrong_value": "0.937",
+        "correct_value": "0.937",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["epochs", "batch_size", "seed"]
+  },
+  {
+    "id": "config_005",
+    "description": "LLM fine-tuning config with seed as string and zero num_layers",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# LLaMA Fine-tuning Config\nmodel:\n  architecture: llama-7b\n  num_layers: 0\n  hidden_size: 4096\n  num_heads: 32\n  vocab_size: 32000\n  max_seq_len: 2048\n  lora_rank: 16\n\ntraining:\n  learning_rate: 0.0002\n  optimizer: adamw\n  batch_size: 1\n  epochs: 3\n  weight_decay: 0.1\n  gradient_clip: 1.0\n  gradient_accumulation: 8\n\ndata:\n  dataset: alpaca\n  val_split: 0.05\n  num_workers: 4\n  tokenizer: llama\n  max_length: 512\n\nscheduler:\n  type: cosine\n  warmup_ratio: 0.03\n\nlogging:\n  seed: random\n  log_interval: 10\n  eval_steps: 200\n  save_total_limit: 3",
+    "broken_fields": {
+      "num_layers": {
+        "wrong_value": "0",
+        "correct_value": "32",
+        "issue_type": "zero_value"
+      },
+      "seed": {
+        "wrong_value": "random",
+        "correct_value": "42",
+        "issue_type": "wrong_type"
+      },
+      "batch_size": {
+        "wrong_value": "1",
+        "correct_value": "1",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["batch_size", "learning_rate", "val_split"]
+  },
+  {
+    "id": "config_006",
+    "description": "Time-series forecasting with val_split > 1.0 and gradient_clip of 0",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# LSTM Time-Series Forecasting Config\nmodel:\n  architecture: lstm\n  input_dim: 7\n  hidden_size: 128\n  num_layers: 2\n  output_dim: 1\n  dropout: 0.2\n  bidirectional: false\n\ntraining:\n  learning_rate: 0.001\n  optimizer: adam\n  batch_size: 32\n  epochs: 200\n  weight_decay: 0.0001\n  gradient_clip: 0\n\ndata:\n  dataset: electricity\n  val_split: 1.5\n  lookback_window: 96\n  forecast_horizon: 24\n  num_workers: 2\n\nscheduler:\n  type: reduce_on_plateau\n  factor: 0.5\n  patience: 10\n\nlogging:\n  seed: 2024\n  log_interval: 25\n  early_stopping_patience: 20\n  save_best: true",
+    "broken_fields": {
+      "val_split": {
+        "wrong_value": "1.5",
+        "correct_value": "0.2",
+        "issue_type": "value_out_of_range"
+      },
+      "gradient_clip": {
+        "wrong_value": "0",
+        "correct_value": "1.0",
+        "issue_type": "zero_value"
+      },
+      "epochs": {
+        "wrong_value": "200",
+        "correct_value": "200",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["epochs", "dropout", "learning_rate"]
+  },
+  {
+    "id": "config_007",
+    "description": "Recommendation system with loss_function mismatch and batch_size of 0",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# Neural Collaborative Filtering Config\nmodel:\n  architecture: ncf\n  num_users: 6040\n  num_items: 3706\n  embedding_dim: 64\n  hidden_dims: [256, 128, 64]\n  dropout: 0.3\n\ntraining:\n  learning_rate: 0.001\n  optimizer: adam\n  batch_size: 0\n  epochs: 20\n  weight_decay: 0.0001\n  gradient_clip: 5.0\n\ndata:\n  dataset: movielens-1m\n  val_split: 0.2\n  negative_samples: 4\n  num_workers: 4\n\nloss:\n  function: mse\n  reduction: mean\n\nscheduler:\n  type: step\n  step_size: 5\n  gamma: 0.5\n\nlogging:\n  seed: 42\n  log_interval: 100\n  eval_metrics: [hit_rate, ndcg]\n  top_k: 10",
+    "broken_fields": {
+      "batch_size": {
+        "wrong_value": "0",
+        "correct_value": "256",
+        "issue_type": "zero_value"
+      },
+      "function": {
+        "wrong_value": "mse",
+        "correct_value": "bce",
+        "issue_type": "wrong_loss_for_task"
+      },
+      "learning_rate": {
+        "wrong_value": "0.001",
+        "correct_value": "0.001",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["learning_rate", "dropout", "embedding_dim"]
+  },
+  {
+    "id": "config_008",
+    "description": "GAN training with dropout -0.1 and learning_rate 100",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# DCGAN Training Config\nmodel:\n  generator:\n    latent_dim: 100\n    hidden_size: 256\n    output_channels: 3\n  discriminator:\n    input_channels: 3\n    hidden_size: 256\n    dropout: -0.1\n\ntraining:\n  learning_rate: 100.0\n  optimizer: adam\n  batch_size: 64\n  epochs: 200\n  beta1: 0.5\n  beta2: 0.999\n  gradient_clip: 1.0\n\ndata:\n  dataset: celeba\n  image_size: 64\n  val_split: 0.1\n  num_workers: 4\n\nscheduler:\n  type: none\n\nlogging:\n  seed: 99\n  log_interval: 50\n  save_interval: 10\n  fid_eval_interval: 20",
+    "broken_fields": {
+      "dropout": {
+        "wrong_value": "-0.1",
+        "correct_value": "0.3",
+        "issue_type": "negative_value"
+      },
+      "learning_rate": {
+        "wrong_value": "100.0",
+        "correct_value": "0.0002",
+        "issue_type": "value_out_of_range"
+      },
+      "seed": {
+        "wrong_value": "99",
+        "correct_value": "99",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["seed", "batch_size", "beta1"]
+  },
+  {
+    "id": "config_009",
+    "description": "Transformer with max_seq_len -1 (invalid context) and num_workers -1 (invalid)",
+    "difficulty": "easy",
+    "total_issues": 2,
+    "artifact": "# GPT-2 Language Model Config\nmodel:\n  architecture: gpt2-small\n  num_layers: 12\n  hidden_size: 768\n  num_heads: 12\n  vocab_size: 50257\n  max_seq_len: -1\n  dropout: 0.1\n\ntraining:\n  learning_rate: 0.0003\n  optimizer: adamw\n  batch_size: 8\n  epochs: 1\n  weight_decay: 0.01\n  gradient_clip: 1.0\n  gradient_accumulation: 4\n\ndata:\n  dataset: openwebtext\n  val_split: 0.01\n  num_workers: -1\n  tokenizer: gpt2\n\nscheduler:\n  type: cosine\n  warmup_steps: 2000\n  min_lr: 0.00001\n\nlogging:\n  seed: 1337\n  log_interval: 10\n  eval_interval: 1000\n  save_interval: 5000",
+    "broken_fields": {
+      "max_seq_len": {
+        "wrong_value": "-1",
+        "correct_value": "1024",
+        "issue_type": "negative_value"
+      },
+      "num_workers": {
+        "wrong_value": "-1",
+        "correct_value": "4",
+        "issue_type": "negative_value"
+      }
+    },
+    "valid_fields": ["epochs", "learning_rate", "dropout"]
+  },
+  {
+    "id": "config_010",
+    "description": "Semantic segmentation with wrong loss for task and invalid dropout",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# U-Net Semantic Segmentation Config\nmodel:\n  architecture: unet\n  encoder: resnet34\n  num_classes: 21\n  input_channels: 3\n  dropout: 1.8\n  bilinear: true\n\ntraining:\n  learning_rate: 0.0001\n  optimizer: adam\n  batch_size: 4\n  epochs: 100\n  weight_decay: 0.0005\n  gradient_clip: 5.0\n\ndata:\n  dataset: voc2012\n  val_split: 0.15\n  image_size: 512\n  num_workers: 4\n\nloss:\n  function: mse\n  class_weights: auto\n\nscheduler:\n  type: polynomial\n  power: 0.9\n\nlogging:\n  seed: 21\n  log_interval: 20\n  eval_iou_threshold: 0.5\n  save_predictions: true",
+    "broken_fields": {
+      "dropout": {
+        "wrong_value": "1.8",
+        "correct_value": "0.5",
+        "issue_type": "value_out_of_range"
+      },
+      "function": {
+        "wrong_value": "mse",
+        "correct_value": "cross_entropy",
+        "issue_type": "wrong_loss_for_task"
+      },
+      "batch_size": {
+        "wrong_value": "4",
+        "correct_value": "4",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["batch_size", "learning_rate", "image_size"]
+  },
+  {
+    "id": "config_011",
+    "description": "Speech recognition with epochs 0 and negative momentum",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# Whisper Fine-tuning Config\nmodel:\n  architecture: whisper-small\n  num_layers: 12\n  hidden_size: 768\n  num_heads: 12\n  max_seq_len: 448\n  dropout: 0.0\n  language: en\n\ntraining:\n  learning_rate: 0.00001\n  optimizer: adamw\n  batch_size: 16\n  epochs: 0\n  weight_decay: 0.01\n  momentum: -0.9\n  gradient_clip: 1.0\n  fp16: true\n\ndata:\n  dataset: librispeech-clean\n  val_split: 0.1\n  sample_rate: 16000\n  num_workers: 4\n\nscheduler:\n  type: linear\n  warmup_steps: 500\n\nlogging:\n  seed: 55\n  log_interval: 25\n  eval_wer: true\n  save_total_limit: 5",
+    "broken_fields": {
+      "epochs": {
+        "wrong_value": "0",
+        "correct_value": "10",
+        "issue_type": "zero_value"
+      },
+      "momentum": {
+        "wrong_value": "-0.9",
+        "correct_value": "0.9",
+        "issue_type": "negative_value"
+      },
+      "dropout": {
+        "wrong_value": "0.0",
+        "correct_value": "0.0",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["learning_rate", "dropout", "batch_size"]
+  },
+  {
+    "id": "config_012",
+    "description": "Diffusion model with weight_decay as string and learning_rate 50",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# Stable Diffusion Fine-tuning Config\nmodel:\n  architecture: stable-diffusion-v1-5\n  unet_channels: 320\n  num_layers: 4\n  attention_heads: 8\n  resolution: 512\n  use_ema: true\n\ntraining:\n  learning_rate: 50.0\n  optimizer: adamw\n  batch_size: 1\n  epochs: 100\n  weight_decay: auto\n  gradient_clip: 1.0\n  mixed_precision: fp16\n  gradient_accumulation: 4\n\ndata:\n  dataset: laion-aesthetic\n  val_split: 0.05\n  resolution: 512\n  num_workers: 8\n  center_crop: true\n\nscheduler:\n  type: constant_with_warmup\n  warmup_steps: 500\n\nlogging:\n  seed: 42\n  log_interval: 50\n  save_interval: 500\n  sample_interval: 200",
+    "broken_fields": {
+      "learning_rate": {
+        "wrong_value": "50.0",
+        "correct_value": "0.00001",
+        "issue_type": "value_out_of_range"
+      },
+      "weight_decay": {
+        "wrong_value": "auto",
+        "correct_value": "0.01",
+        "issue_type": "wrong_type"
+      },
+      "batch_size": {
+        "wrong_value": "1",
+        "correct_value": "1",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["batch_size", "gradient_accumulation", "seed"]
+  },
+  {
+    "id": "config_013",
+    "description": "RL PPO config with negative batch_size and val_split > 1",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# PPO Reinforcement Learning Config\nmodel:\n  architecture: actor_critic\n  hidden_dims: [64, 64]\n  activation: tanh\n  orthogonal_init: true\n  dropout: 0.0\n\ntraining:\n  learning_rate: 0.0003\n  optimizer: adam\n  batch_size: -64\n  epochs: 10\n  weight_decay: 0.0\n  gradient_clip: 0.5\n  ppo_epochs: 4\n  clip_range: 0.2\n  value_coef: 0.5\n  entropy_coef: 0.01\n\ndata:\n  env_name: CartPole-v1\n  val_split: 2.0\n  num_envs: 8\n  total_timesteps: 1000000\n  rollout_steps: 128\n\nscheduler:\n  type: linear\n\nlogging:\n  seed: 1\n  log_interval: 1\n  eval_interval: 10000\n  num_eval_episodes: 10",
+    "broken_fields": {
+      "batch_size": {
+        "wrong_value": "-64",
+        "correct_value": "64",
+        "issue_type": "negative_value"
+      },
+      "val_split": {
+        "wrong_value": "2.0",
+        "correct_value": "0.0",
+        "issue_type": "value_out_of_range"
+      },
+      "dropout": {
+        "wrong_value": "0.0",
+        "correct_value": "0.0",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["dropout", "learning_rate", "seed"]
+  },
+  {
+    "id": "config_014",
+    "description": "Graph neural network with optimizer typo and num_layers 0",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# GCN Node Classification Config\nmodel:\n  architecture: gcn\n  input_dim: 1433\n  hidden_dim: 64\n  output_dim: 7\n  num_layers: 0\n  dropout: 0.5\n  normalize: true\n\ntraining:\n  learning_rate: 0.01\n  optimizer: Adma\n  batch_size: 1\n  epochs: 200\n  weight_decay: 0.0005\n  gradient_clip: 5.0\n\ndata:\n  dataset: cora\n  val_split: 0.2\n  test_split: 0.2\n  num_workers: 0\n\nloss:\n  function: nll_loss\n  reduction: mean\n\nscheduler:\n  type: none\n\nlogging:\n  seed: 42\n  log_interval: 10\n  eval_metrics: [accuracy, f1]\n  patience: 50",
+    "broken_fields": {
+      "num_layers": {
+        "wrong_value": "0",
+        "correct_value": "2",
+        "issue_type": "zero_value"
+      },
+      "optimizer": {
+        "wrong_value": "Adma",
+        "correct_value": "adam",
+        "issue_type": "typo"
+      },
+      "dropout": {
+        "wrong_value": "0.5",
+        "correct_value": "0.5",
+        "issue_type": "none"
+      }
+    },
+    "valid_fields": ["dropout", "batch_size", "learning_rate"]
+  },
+  {
+    "id": "config_015",
+    "description": "Vision Transformer with dropout > 1, negative weight_decay, and wrong seed type",
+    "difficulty": "easy",
+    "total_issues": 3,
+    "artifact": "# ViT Image Classification Config\nmodel:\n  architecture: vit-base-patch16\n  num_classes: 1000\n  hidden_size: 768\n  num_layers: 12\n  num_heads: 12\n  patch_size: 16\n  image_size: 224\n  dropout: 1.2\n\ntraining:\n  learning_rate: 0.0001\n  optimizer: adamw\n  batch_size: 256\n  epochs: 300\n  weight_decay: -0.05\n  gradient_clip: 1.0\n  warmup_epochs: 5\n  mixup_alpha: 0.8\n\ndata:\n  dataset: imagenet-1k\n  val_split: 0.0\n  augmentation: randaugment\n  num_workers: 16\n  pin_memory: true\n\nscheduler:\n  type: cosine\n  min_lr: 0.000001\n\nlogging:\n  seed: true\n  log_interval: 100\n  eval_interval: 5\n  save_top_k: 3",
+    "broken_fields": {
+      "dropout": {
+        "wrong_value": "1.2",
+        "correct_value": "0.1",
+        "issue_type": "value_out_of_range"
+      },
+      "weight_decay": {
+        "wrong_value": "-0.05",
+        "correct_value": "0.05",
+        "issue_type": "negative_value"
+      },
+      "seed": {
+        "wrong_value": "true",
+        "correct_value": "42",
+        "issue_type": "wrong_type"
+      }
+    },
+    "valid_fields": ["val_split", "learning_rate", "epochs"]
+  }
+]
