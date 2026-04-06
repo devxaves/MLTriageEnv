@@ -118,7 +118,7 @@ python inference.py
 docker build -t ml-triage-env .
 
 # Run
-docker run -p 8000:8000 ml-triage-env
+docker run -p 8000:7860 ml-triage-env
 
 # Verify
 curl http://localhost:8000/health
