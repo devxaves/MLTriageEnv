@@ -1,4 +1,13 @@
-﻿# 🚀 ML Triage Environment - AI-Powered Environment Diagnostics & Repair
+﻿---
+title: MLTriageEnv
+emoji: 🚀
+colorFrom: gray
+colorTo: pink
+sdk: docker
+pinned: false
+---
+
+# 🚀 ML Triage Environment - AI-Powered Environment Diagnostics & Repair
 
 > **A sophisticated AI agent system that automatically diagnoses and repairs broken machine learning environments with surgical precision and deterministic scoring.**
 >
