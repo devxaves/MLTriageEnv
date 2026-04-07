@@ -29,6 +29,16 @@ app = create_app(
 )
 
 
+@app.get("/")
+def root() -> dict:
+    """Friendly root endpoint for Spaces/browser access."""
+    return {
+        "name": "MLTriageEnv",
+        "status": "running",
+        "message": "Use /health, /reset, /step, /state (or /docs if enabled).",
+    }
+
+
 def main():
     """Entry point for direct execution.
 
