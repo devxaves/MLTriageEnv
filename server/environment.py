@@ -300,6 +300,7 @@ class MLTriageEnvironment(Environment):
             max_steps=MAX_STEPS.get(self._task_type, 15),
         )
 
+    @property
     def state(self) -> MLTriageState:
         """Get the current environment state."""
         return self._state

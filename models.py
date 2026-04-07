@@ -169,3 +169,7 @@ class MLTriageState(State):
         default=15,
         description="Maximum steps allowed",
     )
+
+    def __call__(self) -> "MLTriageState":
+        """Allow `env.state()` style calls while keeping property-based access."""
+        return self
