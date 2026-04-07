@@ -1,11 +1,4 @@
-﻿---
-title: MLTriageEnv
-emoji: 🚀
-colorFrom: gray
-colorTo: pink
-sdk: docker
-pinned: false
----
+
 
 # 🚀 ML Triage Environment - AI-Powered Environment Diagnostics & Repair
 
@@ -720,4 +713,4 @@ MIT License - See LICENSE file for details
 
 ---
 
-**Built with ❤️ for the ML Triage Challenge | Competition-Grade Quality | All Validations Passing ✓ | Baseline: 0.93**
+**Built with ❤️ | All Validations Passing ✓ | Baseline: 0.93**
