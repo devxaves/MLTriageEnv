@@ -1,3 +1,14 @@
+﻿---
+title: MLTriageEnv
+emoji: 🚀
+colorFrom: gray
+colorTo: pink
+sdk: docker
+pinned: false
+tags:
+    - openenv
+---
+
 ![Banner](MLenv.png)
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue)
@@ -39,6 +50,58 @@ This project tackles the **ML Triage Problem**: Can an AI agent automatically id
 3. **Applies** targeted fixes with OpenAI's reasoning capabilities
 4. **Scores** solutions deterministically across multiple grading criteria
 5. **Learns** from outcomes through reinforcement feedback
+
+### Environment Interface (Action & Observation Spaces)
+
+This environment follows a structured RL-style API around typed action and observation objects.
+
+#### Action Space (`MLTriageAction`)
+
+Each step sends one action with the schema:
+
+```json
+{
+    "action_type": "inspect|diagnose|patch|fix_stage|validate|done",
+    "target": "string",
+    "value": "string",
+    "metadata": {}
+}
+```
+
+- `inspect`: examine artifact details (`target` = area, `value` = scope/filter)
+- `diagnose`: identify issue category (`target` = field/stage/failure_mode, `value` = diagnosis)
+- `patch`: fix configuration field (`target` = field name, `value` = corrected value)
+- `fix_stage`: fix pipeline stage (`target` = stage, `value` = remediation)
+- `validate`: run consistency checks (`target` = artifact type, `value` = check type)
+- `done`: finish episode (`target="task"`, `value="complete"`)
+
+#### Observation Space (`MLTriageObservation`)
+
+After `reset` and each `step`, the environment returns:
+
+```json
+{
+    "done": false,
+    "reward": 0.0,
+    "metadata": {},
+    "task_id": "string",
+    "task_type": "config|logs|pipeline",
+    "artifact": "string",
+    "history": [],
+    "feedback": "string",
+    "issues_found": [],
+    "issues_remaining": 0,
+    "step_count": 0,
+    "max_steps": 15
+}
+```
+
+Key interpretation:
+- `artifact`: raw config/log/pipeline payload to reason over
+- `feedback`: evaluator response to the latest action
+- `issues_remaining`: unresolved issue count
+- `done`: terminal signal for episode completion
+- `reward`: shaped/terminal numeric feedback (final score normalized to `[0.0, 1.0]`)
 
 ### Architecture Overview
 
@@ -97,17 +160,19 @@ This project tackles the **ML Triage Problem**: Can an AI agent automatically id
 ## 🛠 Technology Stack
 
 ### Core Technologies
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **LLM** | OpenAI API (GPT-4) | Multi-step reasoning & action planning |
-| **Client SDK** | OpenAI Python SDK | Deterministic API integration |
-| **Web Framework** | FastAPI | High-performance REST API |
-| **Data Validation** | Pydantic | Type-safe environment models |
-| **Container** | Docker | Reproducible deployment |
-| **Deployment** | Hugging Face Spaces | Cloud-hosted inference service |
-| **Version Control** | Git | Multi-remote synchronization |
+
+| Component           | Technology          | Purpose                                |
+| ------------------- | ------------------- | -------------------------------------- |
+| **LLM**             | OpenAI API (GPT-4)  | Multi-step reasoning & action planning |
+| **Client SDK**      | OpenAI Python SDK   | Deterministic API integration          |
+| **Web Framework**   | FastAPI             | High-performance REST API              |
+| **Data Validation** | Pydantic            | Type-safe environment models           |
+| **Container**       | Docker              | Reproducible deployment                |
+| **Deployment**      | Hugging Face Spaces | Cloud-hosted inference service         |
+| **Version Control** | Git                 | Multi-remote synchronization           |
 
 ### Dependencies
+
 ```python
 openai>=1.0.0          # Official OpenAI SDK (GPT-4 compatibility)
 pydantic>=2.0.0        # Data validation & serialization
@@ -125,6 +190,7 @@ python-dotenv>=1.0.0   # Environment variable management
 **Purpose**: Verify all environment variables are properly configured with correct defaults.
 
 **Validation Results**:
+
 ```
 ✓ API_BASE_URL        → https://api-inference.huggingface.co/v1
                         (Default: HF Inference API)
@@ -137,6 +203,7 @@ python-dotenv>=1.0.0   # Environment variable management
 ```
 
 **Compliance**: ✅ PASS
+
 - Defaults set ONLY for API_BASE_URL and MODEL_NAME
 - HF_TOKEN is optional with intelligent fallback chain
 - All variables read from environment at runtime
@@ -151,6 +218,7 @@ python-dotenv>=1.0.0   # Environment variable management
 **Purpose**: Verify proper OpenAI SDK integration with environment variables.
 
 **Validation Results**:
+
 ```python
 ✓ Import Statement    → from openai import OpenAI
 ✓ Instantiation       → OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
@@ -163,6 +231,7 @@ python-dotenv>=1.0.0   # Environment variable management
 ```
 
 **Compliance**: ✅ PASS
+
 - Official OpenAI SDK used (no custom wrappers)
 - Environment variables properly integrated
 - Supports multiple API backends seamlessly
@@ -171,6 +240,7 @@ python-dotenv>=1.0.0   # Environment variable management
 **Code Reference**: inference.py (lines 19, 70-73, 146-175)
 
 **Key Code**:
+
 ```python
 from openai import OpenAI
 
@@ -198,6 +268,7 @@ response = client.chat.completions.create(
 **Validation Results**:
 
 #### Markers
+
 ```json
 [START] {"task_type": "config", "episode_index": 1, ...}
 [STEP]  {"task_type": "config", "step_index": 1, "reward": 0.0500, ...}
@@ -205,6 +276,7 @@ response = client.chat.completions.create(
 ```
 
 #### Format Specifications
+
 ```
 ✓ Markers             → [START], [STEP], [END] present
 ✓ JSON Structure      → Single-line JSON payloads
@@ -217,6 +289,7 @@ response = client.chat.completions.create(
 ```
 
 **Compliance**: ✅ PASS (8/8 checks)
+
 - All markers present and properly formatted
 - JSON serialization deterministic and complete
 - Precision exceeds minimum requirements
@@ -225,6 +298,7 @@ response = client.chat.completions.create(
 **Code Reference**: inference.py (lines 66-68, 220-265)
 
 **Key Code**:
+
 ```python
 def _log(prefix, payload):
     """Log JSON-formatted output to stdout."""
@@ -239,6 +313,7 @@ def _log(prefix, payload):
 **Purpose**: Verify all three task graders produce valid scores in [0.0, 1.0] range.
 
 #### Task 1: Configuration Fixer (Easy)
+
 ```
 Baseline Score:      0.94
 Episodes:            3
@@ -252,11 +327,13 @@ Scoring Components:
 ```
 
 **Sample Output**:
+
 ```json
-{"task_type": "config", "final_score": 0.9400, "steps_taken": 8}
+{ "task_type": "config", "final_score": 0.94, "steps_taken": 8 }
 ```
 
 #### Task 2: Log Diagnostician (Medium)
+
 ```
 Baseline Score:      0.94
 Episodes:            3
@@ -270,11 +347,13 @@ Scoring Components:
 ```
 
 **Sample Output**:
+
 ```json
-{"task_type": "logs", "final_score": 0.9400, "steps_taken": 12}
+{ "task_type": "logs", "final_score": 0.94, "steps_taken": 12 }
 ```
 
 #### Task 3: Pipeline Debugger (Hard)
+
 ```
 Baseline Score:      0.91
 Episodes:            3
@@ -289,13 +368,15 @@ Scoring Components:
 ```
 
 **Sample Output**:
+
 ```json
-{"task_type": "pipeline", "final_score": 0.9100, "steps_taken": 15}
+{ "task_type": "pipeline", "final_score": 0.91, "steps_taken": 15 }
 ```
 
 **Compliance**: ✅ PASS (3/3 graders verified)
 
 #### Baseline Results
+
 ```
 ┌──────────────────────────────────────────┐
 │         OVERALL BASELINE SCORE            │
@@ -319,6 +400,7 @@ Scoring Components:
 **Purpose**: Verify inference script runs end-to-end, produces all markers, and generates valid scores.
 
 **Execution Flow**:
+
 ```
 1. Initialize environment       [✓] Success
 2. Retrieve initial state       [✓] Task: config, Observation: {...}
@@ -333,6 +415,7 @@ Scoring Components:
 **Results**: ✅ PASS (4/4 execution checks)
 
 **Output Verification**:
+
 ```
 ✓ [START] marker present with complete metadata
 ✓ [STEP] markers logged per action (N markers for N steps)
@@ -350,6 +433,7 @@ Scoring Components:
 ## 🎓 Complete Validation Checklist
 
 ### ENVIRONMENT & CONFIGURATION
+
 - [x] Environment variables: API_BASE_URL, MODEL_NAME, HF_TOKEN present
 - [x] Defaults for API_BASE_URL and MODEL_NAME only
 - [x] HF_TOKEN is optional (no hardcoded default)
@@ -357,6 +441,7 @@ Scoring Components:
 - [x] Dockerfile properly configured for production
 
 ### OPENAI INTEGRATION
+
 - [x] `from openai import OpenAI` import statement present
 - [x] `OpenAI(base_url=API_BASE_URL, api_key=API_KEY)` instantiation correct
 - [x] `client.chat.completions.create()` used for LLM calls
@@ -364,6 +449,7 @@ Scoring Components:
 - [x] Compatible with multiple API endpoints
 
 ### STDOUT FORMAT
+
 - [x] [START] marker logged at episode beginning with complete metadata
 - [x] [STEP] marker logged per step with action, reward, done, score
 - [x] [END] marker logged at episode end with final_score and steps_taken
@@ -373,6 +459,7 @@ Scoring Components:
 - [x] Score range: [0.0, 1.0] (normalized, no out-of-range values)
 
 ### TASK EVALUATION
+
 - [x] Task 1 (Config Fixer) grader present and functional
 - [x] Task 1 produces scores in [0.0, 1.0] range
 - [x] Task 1 baseline: 0.94 across 3 episodes
@@ -384,6 +471,7 @@ Scoring Components:
 - [x] Task 3 baseline: 0.91 across 3 episodes
 
 ### INFERENCE TESTING
+
 - [x] Inference script runs end-to-end without errors
 - [x] 9 episodes executed: 3 per task type
 - [x] 45 deterministic scenarios executed (5 per task per episode)
@@ -391,6 +479,7 @@ Scoring Components:
 - [x] Baseline results saved to JSON file
 
 ### DEPLOYMENT
+
 - [x] Dockerfile builds successfully
 - [x] Container runs on HF Space (port 7860)
 - [x] Health endpoint (`/health`) responds with 200 OK
@@ -435,6 +524,7 @@ Scoring Components:
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Python 3.8+
 - pip or conda
 - OpenAI API key (or HF token for Inference API)
@@ -516,6 +606,7 @@ docker run -p 7860:7860 \
 ## 📈 Performance & Metrics
 
 ### Baseline Performance
+
 ```
 Overall Average Score:    0.93
 Config Task Average:      0.94
@@ -530,6 +621,7 @@ Score Reproducibility:    100% ✓
 ```
 
 ### Code Quality
+
 ```
 ✓ Type hints:           Full coverage with Pydantic
 ✓ Error handling:       Comprehensive try-catch blocks
@@ -540,6 +632,7 @@ Score Reproducibility:    100% ✓
 ```
 
 ### Scalability
+
 ```
 ✓ Concurrent requests:  Supported via FastAPI async
 ✓ Memory efficient:     Pydantic validation caching
@@ -620,9 +713,9 @@ class EnvironmentState:
 def _prompt_for_action(state: EnvironmentState) -> str:
     """Generate multi-step reasoning prompt."""
     return f"""Analyze this {state.task_type} environment issue.
-    
+
     Observation: {json.dumps(state.observation)}
-    
+
     Step {state.step_index}: What action should fix this?
     Provide ONE specific action."""
 
@@ -659,6 +752,7 @@ def grade_solution(task_type: str, solution: Dict) -> float:
 ## 🌐 Deployment
 
 ### HF Spaces
+
 - **URL**: https://huggingface.co/spaces/devxaves/MLTriageEnv
 - **Status**: ✅ Running
 - **Commit**: 85f74c6
@@ -666,6 +760,7 @@ def grade_solution(task_type: str, solution: Dict) -> float:
 - **Health Check**: Endpoint responds with 200 OK
 
 ### Git Remotes
+
 ```bash
 $ git remote -v
 origin    git@github.com:devxaves/MLTriageEnv.git (origin/main)
@@ -687,7 +782,7 @@ Both remotes synchronized at commit `85f74c6` ✓
 ✅ **Reproducible Results**: Deterministic scoring, documented scenarios  
 ✅ **Exceptional Documentation**: This masterpiece README  
 ✅ **Professional Deployment**: HF Spaces + multi-remote Git sync  
-✅ **Comprehensive Validation**: 43+ automated test cases with 100% pass rate  
+✅ **Comprehensive Validation**: 43+ automated test cases with 100% pass rate
 
 ---
 
