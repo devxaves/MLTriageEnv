@@ -99,9 +99,12 @@ def _step_line(step: int, action: MLTriageAction, reward: float, done: bool, err
     )
 
 
-def _end_line(success: bool, rewards: List[float]) -> str:
+def _end_line(success: bool, score: float, rewards: List[float]) -> str:
     rewards_csv = ",".join(_format_reward(r) for r in rewards)
-    return f"[END] success={_bool_str(success)} steps={len(rewards)} rewards={rewards_csv}"
+    return (
+        f"[END] success={_bool_str(success)} steps={len(rewards)} "
+        f"score={_format_reward(score)} rewards={rewards_csv}"
+    )
 
 
 def _make_openai_client() -> OpenAI:
@@ -282,12 +285,13 @@ def run_episode(llm_client: OpenAI, task_type: str, scenario_index: int) -> floa
                 success = True
                 break
     finally:
+        end_score = max(0.0, min(1.0, float(last_score)))
         if hasattr(environment, "close"):
             try:
                 environment.close()
             except Exception:
                 pass
-        print(_end_line(success=success, rewards=rewards), flush=True)
+        print(_end_line(success=success, score=end_score, rewards=rewards), flush=True)
 
     return float(last_score)
 
