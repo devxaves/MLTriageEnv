@@ -13,7 +13,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List
 
 import requests
 from openai import OpenAI
@@ -27,11 +27,15 @@ ROOT = Path(__file__).resolve().parent
 SCENARIOS_DIR = ROOT / "scenarios"
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY") or ""
+HF_TOKEN = os.getenv("HF_TOKEN")
+if not HF_TOKEN:
+    raise ValueError("HF_TOKEN environment variable is required")
+
 ENV_URL = os.getenv("ENV_URL", "http://localhost:8000")
 EPISODES_PER_TASK = 3
 TASK_TYPES = ["config", "logs", "pipeline"]
 SCENARIO_INDICES = [0, 1, 2]
+BENCHMARK_NAME = "ml_triage_env"
 
 
 def _load_scenarios(filename: str) -> List[Dict[str, Any]]:
@@ -63,14 +67,45 @@ PIPELINE_FIX_PHRASES: Dict[str, str] = {
 }
 
 
-def _log(prefix: str, payload: Dict[str, Any]) -> None:
-    print(f"[{prefix}] {json.dumps(payload, ensure_ascii=False)}", flush=True)
+def _bool_str(value: bool) -> str:
+    return "true" if value else "false"
 
 
-def _make_openai_client() -> Optional[OpenAI]:
-    if not API_KEY:
-        return None
-    return OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+def _single_line(value: str) -> str:
+    return " ".join(str(value).split())
+
+
+def _format_reward(value: float) -> str:
+    return f"{value:.2f}"
+
+
+def _action_str(action: MLTriageAction) -> str:
+    target = _single_line(action.target)
+    value = _single_line(action.value)
+    if value:
+        return f"{action.action_type}('{target}','{value}')"
+    return f"{action.action_type}('{target}')"
+
+
+def _start_line(task_name: str) -> str:
+    return f"[START] task={task_name} env={BENCHMARK_NAME} model={MODEL_NAME}"
+
+
+def _step_line(step: int, action: MLTriageAction, reward: float, done: bool, error: Any) -> str:
+    error_value = "null" if error in (None, "") else _single_line(str(error))
+    return (
+        f"[STEP] step={step} action={_action_str(action)} reward={_format_reward(reward)} "
+        f"done={_bool_str(done)} error={error_value}"
+    )
+
+
+def _end_line(success: bool, rewards: List[float]) -> str:
+    rewards_csv = ",".join(_format_reward(r) for r in rewards)
+    return f"[END] success={_bool_str(success)} steps={len(rewards)} rewards={rewards_csv}"
+
+
+def _make_openai_client() -> OpenAI:
+    return OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
 
 
 def _environment() -> Any:
@@ -81,10 +116,6 @@ def _environment() -> Any:
     except Exception:
         pass
     return MLTriageEnvironment()
-
-
-def _as_observation(payload: Any) -> Any:
-    return payload
 
 
 def _current_payload(obs: Any) -> Dict[str, Any]:
@@ -143,9 +174,7 @@ def _planned_actions(task_type: str, scenario: Dict[str, Any]) -> List[MLTriageA
     return actions
 
 
-def _prompt_for_action(task_type: str, obs: Dict[str, Any], planned: MLTriageAction, client: Optional[OpenAI]) -> MLTriageAction:
-    if client is None:
-        return planned
+def _prompt_for_action(task_type: str, obs: Dict[str, Any], planned: MLTriageAction, client: OpenAI) -> MLTriageAction:
 
     prompt = {
         "task_type": task_type,
@@ -218,73 +247,59 @@ def _episode_score(obs: Any) -> float:
     return _get_reward(obs)
 
 
-def run_episode(environment: Any, llm_client: Optional[OpenAI], task_type: str, scenario_index: int) -> float:
+def run_episode(llm_client: OpenAI, task_type: str, scenario_index: int) -> float:
     scenario_list = list(SCENARIO_MAP[task_type].values())
     scenario = scenario_list[scenario_index]
-    start_payload = {
-        "task_type": task_type,
-        "episode_index": scenario_index + 1,
-        "scenario_id": scenario["id"],
-        "scenario_difficulty": scenario.get("difficulty", "unknown"),
-    }
-    _log("START", start_payload)
+    environment = _environment()
 
-    obs = _reset(environment, task_type, scenario_index, seed=42 + scenario_index)
-    planned_actions = _planned_actions(task_type, scenario)
+    print(_start_line(task_name=task_type), flush=True)
 
+    rewards: List[float] = []
+    success = False
     last_score = 0.0
-    for step_index, planned in enumerate(planned_actions, start=1):
-        obs_payload = _current_payload(obs)
-        action = _prompt_for_action(task_type, obs_payload, planned, llm_client)
-        obs = _step(environment, action)
-        last_score = _episode_score(obs)
-        step_payload = {
-            "task_type": task_type,
-            "episode_index": scenario_index + 1,
-            "step_index": step_index,
-            "scenario_id": scenario["id"],
-            "action_type": action.action_type,
-            "target": action.target,
-            "value": action.value,
-            "reward": round(_get_reward(obs), 4),
-            "done": _is_done(obs),
-            "score": round(last_score, 4),
-        }
-        _log("STEP", step_payload)
-        if _is_done(obs):
-            break
+    try:
+        obs = _reset(environment, task_type, scenario_index, seed=42 + scenario_index)
+        planned_actions = _planned_actions(task_type, scenario)
 
-    end_payload = {
-        "task_type": task_type,
-        "episode_index": scenario_index + 1,
-        "scenario_id": scenario["id"],
-        "final_score": round(last_score, 4),
-        "steps_taken": int(_current_payload(obs).get("step_count", 0) or 0),
-    }
-    _log("END", end_payload)
+        for step_index, planned in enumerate(planned_actions, start=1):
+            obs_payload = _current_payload(obs)
+            action = _prompt_for_action(task_type, obs_payload, planned, llm_client)
+            obs = _step(environment, action)
+            reward = _get_reward(obs)
+            done = _is_done(obs)
+            last_score = _episode_score(obs)
+
+            payload = _current_payload(obs)
+            metadata = payload.get("metadata", {}) if isinstance(payload.get("metadata", {}), dict) else {}
+            last_action_error = payload.get("last_action_error")
+            if last_action_error is None:
+                last_action_error = metadata.get("last_action_error")
+
+            rewards.append(float(reward))
+            print(_step_line(step_index, action, reward, done, last_action_error), flush=True)
+
+            if done:
+                success = True
+                break
+    finally:
+        if hasattr(environment, "close"):
+            try:
+                environment.close()
+            except Exception:
+                pass
+        print(_end_line(success=success, rewards=rewards), flush=True)
+
     return float(last_score)
 
 
 def main() -> None:
     start_time = time.time()
     llm_client = _make_openai_client()
-    environment = _environment()
-
-    run_header = {
-        "api_base_url": API_BASE_URL,
-        "model_name": MODEL_NAME,
-        "env_url": ENV_URL,
-        "episodes_per_task": EPISODES_PER_TASK,
-        "task_types": TASK_TYPES,
-        "scenario_indices": SCENARIO_INDICES,
-        "llm_enabled": llm_client is not None,
-    }
-    _log("START", run_header)
 
     results: Dict[str, List[float]] = {task_type: [] for task_type in TASK_TYPES}
     for task_type in TASK_TYPES:
         for scenario_index in SCENARIO_INDICES[:EPISODES_PER_TASK]:
-            score = run_episode(environment, llm_client, task_type, scenario_index)
+            score = run_episode(llm_client, task_type, scenario_index)
             results[task_type].append(score)
 
     elapsed = time.time() - start_time
@@ -302,7 +317,6 @@ def main() -> None:
         "elapsed_seconds": round(elapsed, 2),
     }
     Path(ROOT / "baseline_results.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    _log("END", summary)
 
 
 if __name__ == "__main__":

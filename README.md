@@ -6,7 +6,7 @@ colorTo: pink
 sdk: docker
 pinned: false
 tags:
-    - openenv
+  - openenv
 ---
 
 ![Banner](MLenv.png)
@@ -61,10 +61,10 @@ Each step sends one action with the schema:
 
 ```json
 {
-    "action_type": "inspect|diagnose|patch|fix_stage|validate|done",
-    "target": "string",
-    "value": "string",
-    "metadata": {}
+  "action_type": "inspect|diagnose|patch|fix_stage|validate|done",
+  "target": "string",
+  "value": "string",
+  "metadata": {}
 }
 ```
 
@@ -81,22 +81,23 @@ After `reset` and each `step`, the environment returns:
 
 ```json
 {
-    "done": false,
-    "reward": 0.0,
-    "metadata": {},
-    "task_id": "string",
-    "task_type": "config|logs|pipeline",
-    "artifact": "string",
-    "history": [],
-    "feedback": "string",
-    "issues_found": [],
-    "issues_remaining": 0,
-    "step_count": 0,
-    "max_steps": 15
+  "done": false,
+  "reward": 0.0,
+  "metadata": {},
+  "task_id": "string",
+  "task_type": "config|logs|pipeline",
+  "artifact": "string",
+  "history": [],
+  "feedback": "string",
+  "issues_found": [],
+  "issues_remaining": 0,
+  "step_count": 0,
+  "max_steps": 15
 }
 ```
 
 Key interpretation:
+
 - `artifact`: raw config/log/pipeline payload to reason over
 - `feedback`: evaluator response to the latest action
 - `issues_remaining`: unresolved issue count
@@ -599,6 +600,28 @@ docker run -p 7860:7860 \
   -e MODEL_NAME="meta-llama/Llama-3.1-8B-Instruct" \
   -e HF_TOKEN="your-token" \
   ml-triage-env
+```
+
+### Common Failure Cases (Avoid These)
+
+- [x] `inference.py` is in the repository root.
+- [x] `API_BASE_URL` has a default value in `inference.py`.
+- [x] `MODEL_NAME` has a default value in `inference.py`.
+- [ ] `HF_TOKEN` is set in your runtime environment before final submission.
+- [ ] Hugging Face Space is fully **RUNNING** (not **BUILDING**) before submitting links.
+- [ ] Verify no conflicting/redundant deployments are active; Space should be healthy and stable.
+
+Quick pre-submit checks:
+
+```bash
+# OpenEnv compliance
+.venv/Scripts/openenv.exe validate
+
+# Inference baseline
+python inference.py
+
+# Space health
+curl https://devxaves-mltriageenv.hf.space/health
 ```
 
 ---
