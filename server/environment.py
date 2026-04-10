@@ -257,12 +257,17 @@ class MLTriageEnvironment(Environment):
     def _step_observation(self, reward: float, feedback: str) -> MLTriageObservation:
         """Build a mid-episode observation."""
         total = self._scenario.get("total_issues", 0)
+        console_output = (
+            f"Step {self._state.step_count}: action processed. "
+            f"Reward={reward:.2f}. Feedback={feedback}"
+        )
         return MLTriageObservation(
             done=False,
             reward=reward,
             metadata={
                 "step": self._state.step_count,
                 "cumulative_reward": self._cumulative_reward,
+                "console_output": console_output,
             },
             task_id=self._scenario.get("id", ""),
             task_type=self._task_type,
@@ -277,6 +282,10 @@ class MLTriageEnvironment(Environment):
 
     def _terminal_observation(self, feedback: str, reward: float = 0.0) -> MLTriageObservation:
         """Build a terminal observation."""
+        console_output = (
+            f"Episode complete at step {self._state.step_count}. "
+            f"Final reward={reward:.2f}. Feedback={feedback}"
+        )
         return MLTriageObservation(
             done=True,
             reward=reward,
@@ -285,6 +294,7 @@ class MLTriageEnvironment(Environment):
                 "steps_taken": self._state.step_count,
                 "task_type": self._task_type,
                 "scenario_id": self._scenario.get("id", ""),
+                "console_output": console_output,
             },
             task_id=self._scenario.get("id", ""),
             task_type=self._task_type,

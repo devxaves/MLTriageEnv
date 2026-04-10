@@ -14,14 +14,16 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from openenv.core.env_server.http_server import create_app
+import gradio as gr
 
 from server.environment import MLTriageEnvironment
 from models import MLTriageAction, MLTriageObservation
+from server.gradio_ui import demo as ui_app
 
 # Create the FastAPI app using OpenEnv's factory
 # The factory takes the class (not an instance), uses it
 # as a factory to create per-session environments.
-app = create_app(
+api_app = create_app(
     MLTriageEnvironment,
     MLTriageAction,
     MLTriageObservation,
@@ -29,14 +31,17 @@ app = create_app(
 )
 
 
-@app.get("/")
+@api_app.get("/api")
 def root() -> dict:
-    """Friendly root endpoint for Spaces/browser access."""
+    """Friendly API endpoint for browser access."""
     return {
         "name": "MLTriageEnv",
         "status": "running",
         "message": "Use /health, /reset, /step, /state (or /docs if enabled).",
     }
+
+
+app = gr.mount_gradio_app(api_app, ui_app, path="/")
 
 
 def main():

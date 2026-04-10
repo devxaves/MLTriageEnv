@@ -16,6 +16,22 @@ from websockets.sync.client import connect as ws_connect
 from models import MLTriageAction, MLTriageObservation, MLTriageState
 
 
+class MLTriageEnv:
+    """Thin wrapper exposing a `.sync()` context manager style API."""
+
+    def __init__(self, base_url: str = "http://localhost:8000", timeout: float = 30.0):
+        self.base_url = base_url
+        self.timeout = timeout
+
+    def sync(self) -> MLTriageEnvClient:
+        """Return a WebSocket-enabled client context manager."""
+        return MLTriageEnvClient(
+            base_url=self.base_url,
+            timeout=self.timeout,
+            use_websocket=True,
+        )
+
+
 class MLTriageEnvClient:
     """Small HTTP client for the environment server."""
 

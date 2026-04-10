@@ -49,8 +49,8 @@ def grade_pipeline_episode(
         if i.get("type") == "fix" and i.get("correct") is False
     )
 
-    # Diagnosis score (max 0.30)
-    diag_score = (correct_diag / total_bugs) * 0.25 + (partial_diag / total_bugs) * 0.05
+    # Diagnosis score (max 0.35)
+    diag_score = (correct_diag / total_bugs) * 0.30 + (partial_diag / total_bugs) * 0.05
 
     # Fix score (max 0.50)
     fix_score = (correct_fix / total_bugs) * 0.45 + (partial_fix / total_bugs) * 0.10

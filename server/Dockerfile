@@ -23,6 +23,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir \
     "openenv-core[core]>=0.2.2" \
     "fastapi>=0.115.0" \
+    "gradio>=4.0.0" \
     "pydantic>=2.0.0" \
     "uvicorn>=0.24.0" \
     "requests>=2.31.0" \
@@ -43,6 +44,8 @@ COPY --from=builder /app/env /app/env
 
 # Set PYTHONPATH so imports work
 ENV PYTHONPATH="/app/env:$PYTHONPATH"
+ENV WORKERS=2
+ENV MAX_CONCURRENT_ENVS=100
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
