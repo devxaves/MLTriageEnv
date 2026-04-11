@@ -39,6 +39,7 @@ def _run(cmd: list[str], *, cwd: Path | None = None, timeout: int = 300) -> subp
         cmd,
         cwd=str(cwd or ROOT),
         text=True,
+        errors="replace",
         capture_output=True,
         timeout=timeout,
         check=False,
