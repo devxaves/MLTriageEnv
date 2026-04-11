@@ -1,5 +1,8 @@
 name: presubmit
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [main]
@@ -62,9 +65,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Start local API server
+      - name: Run pre_submit.py (Docker enabled)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          API_BASE_URL: ${{ vars.API_BASE_URL || 'https://api-inference.huggingface.co/v1' }}
+          MODEL_NAME: ${{ vars.MODEL_NAME || 'meta-llama/Llama-3.1-8B-Instruct' }}
         run: |
-          nohup python -m uvicorn server.app:app --host 127.0.0.1 --port 8000 > server.log 2>&1 &
+          set -euo pipefail
+
+          python -m uvicorn server.app:app --host 127.0.0.1 --port 8000 > server.log 2>&1 &
+          SERVER_PID=$!
+
+          cleanup() {
+            if ps -p "$SERVER_PID" > /dev/null 2>&1; then
+              kill "$SERVER_PID" || true
+            fi
+          }
+          trap cleanup EXIT
+
           for i in {1..40}; do
             if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
               echo "Server is ready"
@@ -74,10 +92,12 @@ jobs:
           done
           curl -fsS http://127.0.0.1:8000/health >/dev/null
 
-      - name: Run pre_submit.py (Docker enabled)
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          API_BASE_URL: ${{ vars.API_BASE_URL }}
-          MODEL_NAME: ${{ vars.MODEL_NAME }}
-        run: |
           python scripts/pre_submit.py --env-url http://127.0.0.1:8000
+
+      - name: Dump server log on failure
+        if: failure()
+        run: |
+          if [ -f server.log ]; then
+            echo "===== server.log ====="
+            cat server.log
+          fi
