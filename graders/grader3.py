@@ -66,7 +66,7 @@ def grade_pipeline_episode(
     bugs = scenario.get("bugs", {})
     total_bugs = len(bugs)
     if total_bugs == 0:
-        return SCORE_MAX
+        return _strict_score(SCORE_MAX)
 
     # Count correct diagnoses
     correct_diag = sum(
