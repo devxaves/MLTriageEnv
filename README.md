@@ -623,6 +623,9 @@ docker run -p 7860:7860 \
 - [x] `HF_TOKEN` is set in your runtime environment before final submission.
 - [x] Hugging Face Space is fully **RUNNING** (not **BUILDING**) before submitting links.
 - [x] Verify no conflicting/redundant deployments are active; Space should be healthy and stable.
+- [x] `inference.py` wraps network/model parsing calls in `try/except` and always emits `[END]`.
+- [x] `inference.py` probes environment health and auto-falls back across local ports (`8000`/`7860`) before running episodes.
+- [x] If `ENV_URL` is custom, verify `<ENV_URL>/health` is reachable from inside the runtime container.
 
 Quick pre-submit checks:
 
