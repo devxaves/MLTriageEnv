@@ -2,11 +2,11 @@ import inference
 from models import VALID_ACTION_TYPES
 
 
-def test_print_end_includes_score(capsys):
+def test_print_end_strict_format(capsys):
     inference._print_end(success=True, rewards=[0.0, 0.25, 0.75])
     out = capsys.readouterr().out.strip()
     assert out.startswith("[END] success=true")
-    assert " score=0.7500 " in out
+    assert " score=" not in out
     assert out.endswith("rewards=0.00,0.25,0.75")
 
 

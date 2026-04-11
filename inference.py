@@ -75,9 +75,8 @@ def _print_step(step: int, action: MLTriageAction, reward: float, done: bool, er
 
 def _print_end(success: bool, rewards: List[float]) -> None:
     rewards_csv = ",".join(_format_reward(r) for r in rewards)
-    score = _strict_score(rewards[-1] if rewards else SCORE_MIN)
     print(
-        f"[END] success={_bool_str(success)} steps={len(rewards)} score={_format_score(score)} rewards={rewards_csv}",
+        f"[END] success={_bool_str(success)} steps={len(rewards)} rewards={rewards_csv}",
         flush=True,
     )
 
@@ -145,60 +144,13 @@ def _extract_json_object(text: str) -> Dict[str, Any]:
 
 
 def _fallback_action(observation: Dict[str, Any]) -> MLTriageAction:
-    task_type = str(observation.get("task_type", "")).lower()
-    step_count = int(observation.get("step_count", 0) or 0)
-    max_steps = int(observation.get("max_steps", 15) or 15)
-
-    if step_count >= max_steps - 1:
-        return MLTriageAction(action_type="done", target="task", value="complete", metadata={})
-
-    if task_type == "config":
-        if step_count == 0:
-            return MLTriageAction(action_type="inspect", target="learning_rate", value="", metadata={})
-        if step_count == 1:
-            return MLTriageAction(action_type="patch", target="learning_rate", value="0.001", metadata={})
-        if step_count == 2:
-            return MLTriageAction(action_type="validate", target="config", value="consistency", metadata={})
-        return MLTriageAction(action_type="done", target="task", value="complete", metadata={})
-
-    if task_type == "logs":
-        if step_count == 0:
-            return MLTriageAction(action_type="inspect", target="training_logs", value="", metadata={})
-        if step_count == 1:
-            return MLTriageAction(action_type="diagnose", target="failure_mode", value="gradient explosion", metadata={})
-        if step_count == 2:
-            return MLTriageAction(action_type="fix_stage", target="training", value="add gradient clipping", metadata={})
-        if step_count == 3:
-            return MLTriageAction(action_type="validate", target="logs", value="stability", metadata={})
-        return MLTriageAction(action_type="done", target="task", value="complete", metadata={})
-
-    available_tools = observation.get("available_tools")
-    if isinstance(available_tools, list) and available_tools:
-        if step_count == 0 and "inspect_logs" in available_tools:
-            return MLTriageAction(action_type="inspect_logs", target="payment-gateway", value="", metadata={})
-        if step_count == 1 and "query_metrics" in available_tools:
-            return MLTriageAction(action_type="query_metrics", target="ledger-writer", value="", metadata={})
-        if step_count == 2 and "check_dependency_graph" in available_tools:
-            return MLTriageAction(action_type="check_dependency_graph", target="checkout-api", value="", metadata={})
-        if step_count == 3 and "dismiss_red_herring" in available_tools:
-            return MLTriageAction(action_type="dismiss_red_herring", target="payment-gateway", value="", metadata={})
-        if "finalize_triage" in available_tools:
-            return MLTriageAction(
-                action_type="finalize_triage",
-                target="incident",
-                value="root cause ledger-writer priority P1",
-                metadata={},
-            )
-
-    if step_count == 0:
-        return MLTriageAction(action_type="inspect", target="preprocessing", value="", metadata={})
-    if step_count == 1:
-        return MLTriageAction(action_type="diagnose", target="preprocessing", value="fit_on_test", metadata={})
-    if step_count == 2:
-        return MLTriageAction(action_type="fix_stage", target="preprocessing", value="fit on training data only", metadata={})
-    if step_count == 3:
-        return MLTriageAction(action_type="validate", target="pipeline", value="check", metadata={})
-    return MLTriageAction(action_type="done", target="task", value="complete", metadata={})
+    """Generic fallback with no hardcoded task-solving sequence."""
+    return MLTriageAction(
+        action_type="inspect",
+        target="error",
+        value="failed to parse previous action or hit network timeout",
+        metadata={},
+    )
 
 
 def _next_action(openai_client: OpenAI | None, observation: Dict[str, Any]) -> MLTriageAction:
