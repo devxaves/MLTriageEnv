@@ -23,6 +23,11 @@ VALID_ACTION_TYPES = frozenset([
     "fix_stage",
     "validate",
     "done",
+    "inspect_logs",
+    "query_metrics",
+    "check_dependency_graph",
+    "dismiss_red_herring",
+    "finalize_triage",
 ])
 
 
@@ -58,6 +63,26 @@ class MLTriageAction(Action):
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
         description="Optional structured metadata for the action",
+    )
+    service: str = Field(
+        default="",
+        description="Optional target service for investigation-style actions",
+    )
+    query: str = Field(
+        default="",
+        description="Optional query/filter for inspection or metrics actions",
+    )
+    root_cause: str = Field(
+        default="",
+        description="Optional root-cause declaration used by finalize_triage",
+    )
+    priority: str = Field(
+        default="",
+        description="Optional priority declaration (e.g. P1/P2/P3)",
+    )
+    rationale: str = Field(
+        default="",
+        description="Optional free-text rationale for the action",
     )
 
 
@@ -132,6 +157,18 @@ class MLTriageObservation(Observation):
         default=15,
         description="Maximum steps allowed per episode",
     )
+    available_tools: List[str] = Field(
+        default_factory=list,
+        description="Tool-style actions available to the agent in the current scenario",
+    )
+    evidence: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Structured evidence gathered so far during investigation",
+    )
+    last_action_error: str = Field(
+        default="",
+        description="Raw error string for the last action, if any",
+    )
 
 
 class MLTriageState(State):
@@ -168,6 +205,22 @@ class MLTriageState(State):
     max_steps: int = Field(
         default=15,
         description="Maximum steps allowed",
+    )
+    investigated_services: List[str] = Field(
+        default_factory=list,
+        description="Services inspected so far",
+    )
+    queried_metrics: List[str] = Field(
+        default_factory=list,
+        description="Services/keys queried through metrics actions",
+    )
+    dismissed_red_herrings: List[str] = Field(
+        default_factory=list,
+        description="Red-herring services explicitly dismissed",
+    )
+    knowledge_base: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Structured investigation memory accumulated by the agent",
     )
 
     def __call__(self) -> "MLTriageState":

@@ -99,7 +99,7 @@ class TestLogDiagnosticianTask:
 class TestPipelineDebuggerTask:
     def test_load_scenarios(self):
         task = PipelineDebuggerTask()
-        assert len(task.scenarios) == 15
+        assert len(task.scenarios) == 16
 
     def test_inspect_faulty_stage(self):
         task = PipelineDebuggerTask()

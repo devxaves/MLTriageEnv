@@ -60,9 +60,14 @@ Each step sends one action with the schema:
 
 ```json
 {
-  "action_type": "inspect|diagnose|patch|fix_stage|validate|done",
+  "action_type": "inspect|diagnose|patch|fix_stage|validate|done|inspect_logs|query_metrics|check_dependency_graph|dismiss_red_herring|finalize_triage",
   "target": "string",
   "value": "string",
+  "service": "string",
+  "query": "string",
+  "root_cause": "string",
+  "priority": "string",
+  "rationale": "string",
   "metadata": {}
 }
 ```
@@ -73,6 +78,9 @@ Each step sends one action with the schema:
 - `fix_stage`: fix pipeline stage (`target` = stage, `value` = remediation)
 - `validate`: run consistency checks (`target` = artifact type, `value` = check type)
 - `done`: finish episode (`target="task"`, `value="complete"`)
+- `inspect_logs` / `query_metrics` / `check_dependency_graph`: investigation actions used in advanced hard scenarios
+- `dismiss_red_herring`: explicitly mark a noisy non-causal service as non-root-cause
+- `finalize_triage`: submit root cause + priority after evidence collection
 
 #### Observation Space (`MLTriageObservation`)
 
@@ -91,7 +99,10 @@ After `reset` and each `step`, the environment returns:
   "issues_found": [],
   "issues_remaining": 0,
   "step_count": 0,
-  "max_steps": 15
+  "max_steps": 15,
+  "available_tools": [],
+  "evidence": {},
+  "last_action_error": ""
 }
 ```
 
@@ -102,6 +113,8 @@ Key interpretation:
 - `issues_remaining`: unresolved issue count
 - `done`: terminal signal for episode completion
 - `reward`: shaped/terminal numeric feedback (final score normalized to `[0.0, 1.0]`)
+- `available_tools`: scenario-specific investigation tools (especially in hard triage mode)
+- `evidence`: structured evidence gathered so far (investigated services and dismissals)
 
 ### Architecture Overview
 

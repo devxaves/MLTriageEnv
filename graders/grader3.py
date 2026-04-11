@@ -24,6 +24,37 @@ def grade_pipeline_episode(
 
     Scores are normalized to [0.0, 1.0].
     """
+    if scenario.get("mode") == "evidence_triage" or scenario.get("root_cause_service"):
+        root_service = scenario.get("root_cause_service", "")
+        required_evidence = set(scenario.get("required_evidence", ["logs", "metrics", "dependency_graph"]))
+        red_herring = scenario.get("red_herring_service", "")
+
+        root_evidence = {
+            i.get("evidence") for i in issues_found
+            if i.get("type") == "evidence" and i.get("service") == root_service
+        }
+        evidence_ratio = len(root_evidence.intersection(required_evidence)) / max(1, len(required_evidence))
+
+        dismissed = any(
+            i.get("type") == "dismissal"
+            and i.get("service") == red_herring
+            and i.get("correct") is True
+            for i in issues_found
+        )
+        triage_correct = any(
+            i.get("type") == "triage" and i.get("correct") is True
+            for i in issues_found
+        )
+
+        score = evidence_ratio * 0.45
+        score += 0.20 if dismissed else 0.0
+        score += 0.30 if triage_correct else 0.0
+
+        if triage_correct and step_count < max_steps:
+            score += ((max_steps - step_count) / max_steps) * 0.05
+
+        return max(0.0, min(1.0, score))
+
     bugs = scenario.get("bugs", {})
     total_bugs = len(bugs)
     if total_bugs == 0:

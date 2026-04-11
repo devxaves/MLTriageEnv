@@ -61,6 +61,16 @@ class PipelineDebuggerTask(BaseTask):
         history: List[Dict[str, str]],
         issues_found: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
+        if scenario.get("mode") == "evidence_triage" or scenario.get("root_cause_service"):
+            return self._process_evidence_triage(
+                action_type=action_type,
+                target=target,
+                value=value,
+                scenario=scenario,
+                history=history,
+                issues_found=issues_found,
+            )
+
         faulty_stages = scenario.get("faulty_stages", [])
         bugs = scenario.get("bugs", {})
         valid_stages = scenario.get("valid_stages", [])
@@ -289,6 +299,181 @@ class PipelineDebuggerTask(BaseTask):
         return {
             "reward": 0.0,
             "feedback": f"Action '{action_type}' not applicable for pipeline debugging.",
+            "issue_found": None,
+            "task_complete": False,
+        }
+
+    def _process_evidence_triage(
+        self,
+        action_type: str,
+        target: str,
+        value: str,
+        scenario: Dict[str, Any],
+        history: List[Dict[str, str]],
+        issues_found: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        root_service = scenario.get("root_cause_service", "")
+        red_herring = scenario.get("red_herring_service", "")
+        expected_priority = str(scenario.get("expected_priority", "P1")).upper()
+        required_evidence = set(scenario.get("required_evidence", ["logs", "metrics", "dependency_graph"]))
+
+        def _already_has(e_type: str, service: str = "") -> bool:
+            return any(
+                i.get("type") == e_type and (not service or i.get("service") == service)
+                for i in issues_found
+            )
+
+        def _action_repeats(a_type: str, tgt: str) -> int:
+            return sum(
+                1 for h in history
+                if h.get("action_type") == a_type and h.get("target") == tgt
+            )
+
+        # Investigation actions
+        if action_type in {"inspect_logs", "query_metrics", "check_dependency_graph", "inspect"}:
+            if action_type == "inspect":
+                action_type = "inspect_logs"
+
+            repeats = _action_repeats(action_type, target)
+            repeat_penalty = -0.02 if repeats > 2 else 0.0
+
+            if action_type == "inspect_logs":
+                if target == root_service and not _already_has("evidence", root_service):
+                    return {
+                        "reward": 0.10 + repeat_penalty,
+                        "feedback": f"Logs indicate correlated failures around '{root_service}'.",
+                        "issue_found": {"type": "evidence", "evidence": "logs", "service": root_service, "correct": True},
+                        "task_complete": False,
+                    }
+                if target == red_herring:
+                    return {
+                        "reward": 0.03 + repeat_penalty,
+                        "feedback": f"'{red_herring}' shows noisy warnings but no causal failure signal yet.",
+                        "issue_found": {"type": "evidence", "evidence": "logs", "service": red_herring, "correct": True},
+                        "task_complete": False,
+                    }
+                return {
+                    "reward": 0.0 + repeat_penalty,
+                    "feedback": f"Collected logs for '{target}'. Evidence is inconclusive.",
+                    "issue_found": {"type": "evidence", "evidence": "logs", "service": target, "correct": False},
+                    "task_complete": False,
+                }
+
+            if action_type == "query_metrics":
+                if target == root_service:
+                    return {
+                        "reward": 0.10 + repeat_penalty,
+                        "feedback": f"Metrics spike confirms '{root_service}' as upstream trigger.",
+                        "issue_found": {"type": "evidence", "evidence": "metrics", "service": root_service, "correct": True},
+                        "task_complete": False,
+                    }
+                if target == red_herring:
+                    return {
+                        "reward": 0.03 + repeat_penalty,
+                        "feedback": f"Metrics for '{red_herring}' are degraded but lag root-cause onset.",
+                        "issue_found": {"type": "evidence", "evidence": "metrics", "service": red_herring, "correct": True},
+                        "task_complete": False,
+                    }
+                return {
+                    "reward": 0.01 + repeat_penalty,
+                    "feedback": f"Metrics queried for '{target}' with limited diagnostic value.",
+                    "issue_found": {"type": "evidence", "evidence": "metrics", "service": target, "correct": False},
+                    "task_complete": False,
+                }
+
+            # check_dependency_graph
+            if root_service:
+                return {
+                    "reward": 0.12 + repeat_penalty,
+                    "feedback": f"Dependency graph shows '{root_service}' fans out into failing downstream services.",
+                    "issue_found": {"type": "evidence", "evidence": "dependency_graph", "service": root_service, "correct": True},
+                    "task_complete": False,
+                }
+
+        if action_type == "dismiss_red_herring":
+            if target != red_herring:
+                return {
+                    "reward": -0.03,
+                    "feedback": f"'{target}' is not the known red-herring service for this incident.",
+                    "issue_found": None,
+                    "task_complete": False,
+                }
+
+            has_red_herring_evidence = any(
+                i.get("type") == "evidence" and i.get("service") == red_herring
+                for i in issues_found
+            )
+            if has_red_herring_evidence:
+                return {
+                    "reward": 0.12,
+                    "feedback": f"Correctly dismissed '{red_herring}' as a non-causal symptom.",
+                    "issue_found": {"type": "dismissal", "service": red_herring, "correct": True},
+                    "task_complete": False,
+                }
+            return {
+                "reward": 0.02,
+                "feedback": f"Dismissal accepted, but gather stronger evidence on '{red_herring}' next time.",
+                "issue_found": {"type": "dismissal", "service": red_herring, "correct": False},
+                "task_complete": False,
+            }
+
+        if action_type in {"finalize_triage", "done", "validate"}:
+            normalized_value = value.lower()
+            mentions_root = root_service.lower() in normalized_value if root_service else False
+            mentions_priority = expected_priority.lower() in normalized_value
+            has_dismissal = _already_has("dismissal", red_herring)
+            gathered = {
+                i.get("evidence") for i in issues_found
+                if i.get("type") == "evidence" and i.get("service") == root_service
+            }
+            has_required_evidence = required_evidence.issubset(gathered)
+
+            if action_type == "validate":
+                return {
+                    "reward": 0.02,
+                    "feedback": (
+                        f"Readiness: root_evidence={has_required_evidence}, "
+                        f"red_herring_dismissed={has_dismissal}, "
+                        f"priority_declared={mentions_priority}."
+                    ),
+                    "issue_found": None,
+                    "task_complete": False,
+                }
+
+            if mentions_root and mentions_priority and has_dismissal and has_required_evidence:
+                return {
+                    "reward": 0.30,
+                    "feedback": (
+                        f"Triage finalized correctly: root cause='{root_service}', "
+                        f"priority={expected_priority}, red herring dismissed='{red_herring}'."
+                    ),
+                    "issue_found": {
+                        "type": "triage",
+                        "root_cause": root_service,
+                        "priority": expected_priority,
+                        "correct": True,
+                    },
+                    "task_complete": True,
+                }
+
+            return {
+                "reward": -0.08,
+                "feedback": (
+                    "Finalization is premature or incomplete. "
+                    "Ensure root-cause evidence, red-herring dismissal, and explicit priority declaration."
+                ),
+                "issue_found": {
+                    "type": "triage",
+                    "root_cause": root_service,
+                    "priority": expected_priority,
+                    "correct": False,
+                },
+                "task_complete": action_type == "done",
+            }
+
+        return {
+            "reward": -0.01,
+            "feedback": f"Action '{action_type}' is unsupported in evidence-triage mode.",
             "issue_found": None,
             "task_complete": False,
         }

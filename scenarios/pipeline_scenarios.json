@@ -328,5 +328,27 @@
       }
     },
     "valid_stages": ["preprocessing", "model_training"]
+  },
+  {
+    "id": "pipeline_016",
+    "description": "Payment failure incident with a deceptive gateway red-herring",
+    "difficulty": "hard",
+    "mode": "evidence_triage",
+    "total_issues": 1,
+    "symptom": "Checkout success drops from 98% to 61%, while customer retries spike",
+    "artifact": "Incident Timeline (UTC)\n\nService topology:\n  checkout-api -> pricing-service -> ledger-writer -> payment-gateway\n\nObserved signals:\n  - payment-gateway reports intermittent 5xx spikes and latency p95=1.8s\n  - ledger-writer queue depth surges from 120 to 12,400\n  - checkout-api timeout errors rise after ledger queue growth\n  - tracing shows retries saturating ledger writer workers\n\nRecent changes:\n  - payment-gateway TLS certificate rotated (planned)\n  - ledger-writer retry policy changed from linear to unbounded exponential retries\n\nBusiness impact:\n  - checkout conversion -37%\n  - duplicate authorization attempts increased\n  - financial reconciliation backlog growing",
+    "root_cause_service": "ledger-writer",
+    "red_herring_service": "payment-gateway",
+    "expected_priority": "P1",
+    "investigation_tools": [
+      "inspect_logs",
+      "query_metrics",
+      "check_dependency_graph",
+      "dismiss_red_herring",
+      "finalize_triage"
+    ],
+    "required_evidence": ["logs", "metrics", "dependency_graph"],
+    "bugs": {},
+    "valid_stages": ["checkout-api", "pricing-service", "ledger-writer", "payment-gateway"]
   }
 ]

@@ -160,20 +160,23 @@ class MLTriageEnvironment(Environment):
         self._state.step_count += 1
         max_steps = MAX_STEPS.get(self._task_type, 15)
 
+        resolved_target = action.target or action.service
+        resolved_value = action.value or action.query or action.root_cause or action.rationale
+
         # Add to history
         self._history.append({
             "step": str(self._state.step_count),
             "action_type": action.action_type,
-            "target": action.target,
-            "value": action.value,
+            "target": resolved_target,
+            "value": resolved_value,
         })
 
         # Process action through task handler
         task = self._tasks[self._task_type]
         result = task.process_action(
             action_type=action.action_type,
-            target=action.target,
-            value=action.value,
+            target=resolved_target,
+            value=resolved_value,
             scenario=self._scenario,
             history=self._history,
             issues_found=self._issues_found,
@@ -257,6 +260,17 @@ class MLTriageEnvironment(Environment):
     def _step_observation(self, reward: float, feedback: str) -> MLTriageObservation:
         """Build a mid-episode observation."""
         total = self._scenario.get("total_issues", 0)
+        available_tools = self._scenario.get("investigation_tools", [])
+        evidence = {
+            "investigated_services": sorted({
+                i.get("service", "") for i in self._issues_found
+                if i.get("type") == "evidence" and i.get("service")
+            }),
+            "dismissed_red_herrings": sorted({
+                i.get("service", "") for i in self._issues_found
+                if i.get("type") == "dismissal" and i.get("service")
+            }),
+        }
         console_output = (
             f"Step {self._state.step_count}: action processed. "
             f"Reward={reward:.2f}. Feedback={feedback}"
@@ -278,10 +292,24 @@ class MLTriageEnvironment(Environment):
             issues_remaining=max(0, total - self._state.issues_resolved),
             step_count=self._state.step_count,
             max_steps=MAX_STEPS.get(self._task_type, 15),
+            available_tools=available_tools,
+            evidence=evidence,
+            last_action_error="",
         )
 
     def _terminal_observation(self, feedback: str, reward: float = 0.0) -> MLTriageObservation:
         """Build a terminal observation."""
+        available_tools = self._scenario.get("investigation_tools", [])
+        evidence = {
+            "investigated_services": sorted({
+                i.get("service", "") for i in self._issues_found
+                if i.get("type") == "evidence" and i.get("service")
+            }),
+            "dismissed_red_herrings": sorted({
+                i.get("service", "") for i in self._issues_found
+                if i.get("type") == "dismissal" and i.get("service")
+            }),
+        }
         console_output = (
             f"Episode complete at step {self._state.step_count}. "
             f"Final reward={reward:.2f}. Feedback={feedback}"
@@ -308,6 +336,9 @@ class MLTriageEnvironment(Environment):
             ),
             step_count=self._state.step_count,
             max_steps=MAX_STEPS.get(self._task_type, 15),
+            available_tools=available_tools,
+            evidence=evidence,
+            last_action_error="",
         )
 
     @property
