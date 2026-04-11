@@ -19,7 +19,6 @@ tags:
 > **A sophisticated AI agent system that automatically diagnoses and repairs broken machine learning environments with surgical precision and deterministic scoring.**
 >
 > **Competition-Grade Quality | All Validations Passing ✓ | Baseline: 0.93**
-
 ---
 
 ## 🎯 Problem Statement
@@ -607,9 +606,9 @@ docker run -p 7860:7860 \
 - [x] `inference.py` is in the repository root.
 - [x] `API_BASE_URL` has a default value in `inference.py`.
 - [x] `MODEL_NAME` has a default value in `inference.py`.
-- [ ] `HF_TOKEN` is set in your runtime environment before final submission.
-- [ ] Hugging Face Space is fully **RUNNING** (not **BUILDING**) before submitting links.
-- [ ] Verify no conflicting/redundant deployments are active; Space should be healthy and stable.
+- [x] `HF_TOKEN` is set in your runtime environment before final submission.
+- [x] Hugging Face Space is fully **RUNNING** (not **BUILDING**) before submitting links.
+- [x] Verify no conflicting/redundant deployments are active; Space should be healthy and stable.
 
 Quick pre-submit checks:
 
