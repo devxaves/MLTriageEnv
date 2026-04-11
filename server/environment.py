@@ -61,7 +61,11 @@ class MLTriageEnvironment(Environment):
         }
 
         # Episode state
-        self._state = MLTriageState(episode_id=str(uuid4()), step_count=0)
+        self._state = MLTriageState(
+            episode_id=str(uuid4()),
+            step_count=0,
+            current_score=SCORE_MIN,
+        )
         self._scenario: Dict[str, Any] = {}
         self._task_type: str = ""
         self._history: List[Dict[str, str]] = []
@@ -116,7 +120,7 @@ class MLTriageEnvironment(Environment):
             task_type=self._task_type,
             total_issues=total_issues,
             issues_resolved=0,
-            current_score=0.0,
+            current_score=SCORE_MIN,
             max_steps=max_steps,
         )
 
@@ -203,7 +207,7 @@ class MLTriageEnvironment(Environment):
 
         # Update cumulative score
         self._cumulative_reward += reward
-        self._state.current_score = self._cumulative_reward
+        self._state.current_score = _strict_score(self._cumulative_reward)
 
         # Count resolved issues
         if self._task_type == "config":
