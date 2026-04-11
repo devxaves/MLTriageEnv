@@ -10,7 +10,7 @@ the OpenEnv base classes for ML pipeline debugging tasks.
 
 from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from openenv.core.env_server.types import Action, Observation, State
 
@@ -199,7 +199,7 @@ class MLTriageState(State):
         description="Number of issues resolved so far",
     )
     current_score: float = Field(
-        default=0.0,
+        default=0.0001,
         description="Cumulative reward for this episode",
     )
     max_steps: int = Field(
@@ -225,4 +225,13 @@ class MLTriageState(State):
 
     def __call__(self) -> "MLTriageState":
         """Allow `env.state()` style calls while keeping property-based access."""
+        return self
+
+    @model_validator(mode="after")
+    def clamp_score_to_strict_range(self) -> "MLTriageState":
+        """Ensure current_score is strictly within (0.0, 1.0)."""
+        if self.current_score <= 0.0:
+            self.current_score = 0.0001
+        elif self.current_score >= 1.0:
+            self.current_score = 0.9999
         return self

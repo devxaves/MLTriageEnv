@@ -143,7 +143,7 @@ class TestModels:
     def test_state_defaults(self):
         s = MLTriageState()
         assert s.step_count == 0
-        assert s.current_score == 0.0
+        assert s.current_score == 0.0001  # Clamped to strict (0,1) range
 
 
 class TestAPIHealth:

@@ -159,7 +159,7 @@ class MLTriageEnvironment(Environment):
         if self._episode_done:
             return self._terminal_observation(
                 "Episode already ended. Call reset().",
-                reward=_strict_score(self._state.current_score or SCORE_MIN),
+                reward=_strict_score(self._state.current_score if self._state.current_score else SCORE_MIN),
             )
 
         # Validate action type
