@@ -36,7 +36,7 @@ def grade_config_episode(
         1 for v in broken.values() if v.get("issue_type", "none") != "none"
     )
     if total_broken == 0:
-        return _strict_score(SCORE_MAX)  # Nothing to fix
+        return SCORE_MAX  # Nothing to fix
 
     # Count correct patches
     correct_patches = sum(

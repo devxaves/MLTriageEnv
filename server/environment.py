@@ -32,13 +32,6 @@ MAX_STEPS = {"config": 15, "logs": 15, "pipeline": 20}
 # Task type mapping
 TASK_TYPES = ["config", "logs", "pipeline"]
 
-SCORE_MIN = 0.0001
-SCORE_MAX = 0.9999
-
-
-def _strict_score(value: float) -> float:
-    return max(SCORE_MIN, min(SCORE_MAX, float(value)))
-
 
 class MLTriageEnvironment(Environment):
     """OpenEnv Environment for ML pipeline debugging.
@@ -61,11 +54,7 @@ class MLTriageEnvironment(Environment):
         }
 
         # Episode state
-        self._state = MLTriageState(
-            episode_id=str(uuid4()),
-            step_count=0,
-            current_score=SCORE_MIN,
-        )
+        self._state = MLTriageState(episode_id=str(uuid4()), step_count=0)
         self._scenario: Dict[str, Any] = {}
         self._task_type: str = ""
         self._history: List[Dict[str, str]] = []
@@ -120,7 +109,7 @@ class MLTriageEnvironment(Environment):
             task_type=self._task_type,
             total_issues=total_issues,
             issues_resolved=0,
-            current_score=SCORE_MIN,
+            current_score=0.0,
             max_steps=max_steps,
         )
 
@@ -157,10 +146,7 @@ class MLTriageEnvironment(Environment):
             self.reset()
 
         if self._episode_done:
-            return self._terminal_observation(
-                "Episode already ended. Call reset().",
-                reward=_strict_score(self._state.current_score if self._state.current_score else SCORE_MIN),
-            )
+            return self._terminal_observation("Episode already ended. Call reset().")
 
         # Validate action type
         if action.action_type not in VALID_ACTION_TYPES:
@@ -207,7 +193,7 @@ class MLTriageEnvironment(Environment):
 
         # Update cumulative score
         self._cumulative_reward += reward
-        self._state.current_score = _strict_score(self._cumulative_reward)
+        self._state.current_score = self._cumulative_reward
 
         # Count resolved issues
         if self._task_type == "config":
@@ -249,30 +235,27 @@ class MLTriageEnvironment(Environment):
     def _compute_final_score(self) -> float:
         """Compute the final graded score using the appropriate grader."""
         if self._task_type == "config":
-            score = grade_config_episode(
+            return grade_config_episode(
                 scenario=self._scenario,
                 issues_found=self._issues_found,
                 step_count=self._state.step_count,
                 max_steps=MAX_STEPS.get("config", 15),
             )
-            return _strict_score(score)
         elif self._task_type == "logs":
-            score = grade_log_episode(
+            return grade_log_episode(
                 scenario=self._scenario,
                 issues_found=self._issues_found,
                 step_count=self._state.step_count,
                 max_steps=MAX_STEPS.get("logs", 15),
             )
-            return _strict_score(score)
         elif self._task_type == "pipeline":
-            score = grade_pipeline_episode(
+            return grade_pipeline_episode(
                 scenario=self._scenario,
                 issues_found=self._issues_found,
                 step_count=self._state.step_count,
                 max_steps=MAX_STEPS.get("pipeline", 20),
             )
-            return _strict_score(score)
-        return SCORE_MIN
+        return 0.0
 
     def _step_observation(self, reward: float, feedback: str) -> MLTriageObservation:
         """Build a mid-episode observation."""
