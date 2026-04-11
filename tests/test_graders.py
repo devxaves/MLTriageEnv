@@ -139,6 +139,27 @@ class TestGrader3Pipeline:
         score = grade_pipeline_episode(s, issues, step_count=10, max_steps=20)
         assert 0.0 < score < 0.5
 
+    def test_evidence_triage_penalizes_blind_guess(self):
+        scenarios = self._load_scenario(15)
+
+        blind_guess_issues = [
+            {"type": "triage", "root_cause": "ledger-writer", "priority": "P1", "correct": False}
+        ]
+        investigated_issues = [
+            {"type": "evidence", "evidence": "logs", "service": "ledger-writer", "correct": True},
+            {"type": "evidence", "evidence": "metrics", "service": "ledger-writer", "correct": True},
+            {"type": "evidence", "evidence": "dependency_graph", "service": "ledger-writer", "correct": True},
+            {"type": "dismissal", "service": "payment-gateway", "correct": True},
+            {"type": "triage", "root_cause": "ledger-writer", "priority": "P1", "correct": True},
+        ]
+
+        blind_score = grade_pipeline_episode(scenarios, blind_guess_issues, step_count=4, max_steps=20)
+        investigated_score = grade_pipeline_episode(scenarios, investigated_issues, step_count=8, max_steps=20)
+
+        assert blind_score < investigated_score
+        assert blind_score <= 0.1
+        assert investigated_score >= 0.9
+
 
 class TestGraderDeterminism:
     """Graders must be deterministic — same inputs → same output."""

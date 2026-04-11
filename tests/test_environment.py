@@ -7,7 +7,9 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
+from fastapi.testclient import TestClient
 from models import MLTriageAction, MLTriageObservation, MLTriageState
+from server.app import app
 from server.environment import MLTriageEnvironment
 
 
@@ -142,3 +144,12 @@ class TestModels:
         s = MLTriageState()
         assert s.step_count == 0
         assert s.current_score == 0.0
+
+
+class TestAPIHealth:
+    """Test API readiness endpoint."""
+
+    def test_health_endpoint_returns_200(self):
+        client = TestClient(app)
+        response = client.get("/health")
+        assert response.status_code == 200

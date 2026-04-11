@@ -39,6 +39,20 @@ This project tackles the **ML Triage Problem**: Can an AI agent automatically id
 - **Task 2 (Medium)**: Diagnose and resolve complex system logs
 - **Task 3 (Hard)**: Debug and repair multi-stage ML pipelines
 
+### Hard-Task Robustness: Resilience to Noise
+
+The hard task includes an evidence-triage incident scenario with an explicit **red herring**:
+
+- Scenario: `pipeline_016` in `scenarios/pipeline_scenarios.json`
+- True root cause: `ledger-writer`
+- Intentional noisy distractor: `payment-gateway` (critical-looking but non-causal)
+
+Scoring is intentionally designed to reward investigation behavior over lucky guesses:
+
+- Agents must gather logs/metrics/dependency evidence before finalizing triage.
+- Agents should explicitly dismiss the red-herring service.
+- Blind finalization without investigation receives a much lower score than evidence-driven triage.
+
 ---
 
 ## 💡 Solution
