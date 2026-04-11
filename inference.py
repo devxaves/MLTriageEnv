@@ -28,6 +28,8 @@ ENV_URL = os.getenv("ENV_URL", "http://localhost:8000")
 TASK_TYPES = ["config", "logs", "pipeline"]
 EPISODES_PER_TASK = 3
 BENCHMARK_NAME = "ml_triage_env"
+SCORE_MIN = 0.0001
+SCORE_MAX = 0.9999
 
 
 def _bool_str(value: bool) -> str:
@@ -36,6 +38,14 @@ def _bool_str(value: bool) -> str:
 
 def _format_reward(value: float) -> str:
     return f"{value:.2f}"
+
+
+def _strict_score(value: float) -> float:
+    return max(SCORE_MIN, min(SCORE_MAX, float(value)))
+
+
+def _format_score(value: float) -> str:
+    return f"{_strict_score(value):.4f}"
 
 
 def _single_line(value: str) -> str:
@@ -65,9 +75,9 @@ def _print_step(step: int, action: MLTriageAction, reward: float, done: bool, er
 
 def _print_end(success: bool, rewards: List[float]) -> None:
     rewards_csv = ",".join(_format_reward(r) for r in rewards)
-    score = rewards[-1] if rewards else 0.0
+    score = _strict_score(rewards[-1] if rewards else SCORE_MIN)
     print(
-        f"[END] success={_bool_str(success)} steps={len(rewards)} score={_format_reward(score)} rewards={rewards_csv}",
+        f"[END] success={_bool_str(success)} steps={len(rewards)} score={_format_score(score)} rewards={rewards_csv}",
         flush=True,
     )
 

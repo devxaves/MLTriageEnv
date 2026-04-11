@@ -46,7 +46,7 @@ class TestGrader1Config:
     def test_no_action_score_is_zero(self):
         s = self._load_scenario(0)
         score = grade_config_episode(s, [], step_count=15, max_steps=15)
-        assert score == 0.0
+        assert 0.0 < score < 1.0
 
     def test_partial_fix_gives_partial_score(self):
         s = self._load_scenario(0)
@@ -67,7 +67,7 @@ class TestGrader1Config:
             [{"field": "x", "type": "patch", "correct": False}],
         ]:
             score = grade_config_episode(s, issues, step_count=10)
-            assert 0.0 <= score <= 1.0
+            assert 0.0 < score < 1.0
 
 
 class TestGrader2Logs:
@@ -97,7 +97,7 @@ class TestGrader2Logs:
     def test_no_action_is_zero(self):
         s = self._load_scenario(0)
         score = grade_log_episode(s, [], step_count=15, max_steps=15)
-        assert score == 0.0
+        assert 0.0 < score < 1.0
 
 
 class TestGrader3Pipeline:
@@ -128,7 +128,7 @@ class TestGrader3Pipeline:
     def test_no_action_is_zero(self):
         s = self._load_scenario(0)
         score = grade_pipeline_episode(s, [], step_count=20, max_steps=20)
-        assert score == 0.0
+        assert 0.0 < score < 1.0
 
     def test_partial_diagnosis_partial_score(self):
         s = self._load_scenario(0)

@@ -30,7 +30,7 @@ STEP_RE = re.compile(
     r"^\[STEP\] step=\d+ action=.+ reward=-?\d+\.\d{2} done=(true|false) error=(null|.+)$"
 )
 END_RE = re.compile(
-    r"^\[END\] success=(true|false) steps=\d+ score=-?\d+\.\d{2} rewards=.*$"
+    r"^\[END\] success=(true|false) steps=\d+ score=-?\d+\.\d{2,} rewards=.*$"
 )
 
 

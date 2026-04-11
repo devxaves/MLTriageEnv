@@ -7,6 +7,14 @@ Pure Python, deterministic, no LLM. Returns 0.0–1.0.
 from typing import Any, Dict, List
 
 
+SCORE_MIN = 0.0001
+SCORE_MAX = 0.9999
+
+
+def _strict_score(raw_score: float) -> float:
+    return max(SCORE_MIN, min(SCORE_MAX, raw_score))
+
+
 def grade_pipeline_episode(
     scenario: Dict[str, Any],
     issues_found: List[Dict[str, Any]],
@@ -53,12 +61,12 @@ def grade_pipeline_episode(
         if triage_correct and step_count < max_steps:
             score += ((max_steps - step_count) / max_steps) * 0.05
 
-        return max(0.0, min(1.0, score))
+        return _strict_score(score)
 
     bugs = scenario.get("bugs", {})
     total_bugs = len(bugs)
     if total_bugs == 0:
-        return 1.0
+        return SCORE_MAX
 
     # Count correct diagnoses
     correct_diag = sum(
@@ -102,4 +110,4 @@ def grade_pipeline_episode(
         completion_bonus = 0.0
 
     raw_score = diag_score + fix_score + efficiency_bonus + completion_bonus
-    return max(0.0, min(1.0, raw_score))
+    return _strict_score(raw_score)

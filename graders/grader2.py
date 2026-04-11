@@ -7,6 +7,14 @@ Pure Python, deterministic, no LLM. Returns 0.0–1.0.
 from typing import Any, Dict, List
 
 
+SCORE_MIN = 0.0001
+SCORE_MAX = 0.9999
+
+
+def _strict_score(raw_score: float) -> float:
+    return max(SCORE_MIN, min(SCORE_MAX, raw_score))
+
+
 def grade_log_episode(
     scenario: Dict[str, Any],
     issues_found: List[Dict[str, Any]],
@@ -67,4 +75,4 @@ def grade_log_episode(
         efficiency_bonus = 0.0
 
     raw_score = diag_score + intervention_score + efficiency_bonus
-    return max(0.0, min(1.0, raw_score))
+    return _strict_score(raw_score)

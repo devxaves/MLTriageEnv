@@ -7,6 +7,14 @@ Pure Python, deterministic, no LLM. Returns 0.0–1.0.
 from typing import Any, Dict, List
 
 
+SCORE_MIN = 0.0001
+SCORE_MAX = 0.9999
+
+
+def _strict_score(raw_score: float) -> float:
+    return max(SCORE_MIN, min(SCORE_MAX, raw_score))
+
+
 def grade_config_episode(
     scenario: Dict[str, Any],
     issues_found: List[Dict[str, Any]],
@@ -28,7 +36,7 @@ def grade_config_episode(
         1 for v in broken.values() if v.get("issue_type", "none") != "none"
     )
     if total_broken == 0:
-        return 1.0  # Nothing to fix
+        return SCORE_MAX  # Nothing to fix
 
     # Count correct patches
     correct_patches = sum(
@@ -65,4 +73,4 @@ def grade_config_episode(
     penalty = false_positives * 0.02
 
     raw_score = patch_score + diag_score + efficiency_bonus - penalty
-    return max(0.0, min(1.0, raw_score))
+    return _strict_score(raw_score)
