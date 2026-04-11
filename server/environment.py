@@ -32,6 +32,13 @@ MAX_STEPS = {"config": 15, "logs": 15, "pipeline": 20}
 # Task type mapping
 TASK_TYPES = ["config", "logs", "pipeline"]
 
+SCORE_MIN = 0.0001
+SCORE_MAX = 0.9999
+
+
+def _strict_score(value: float) -> float:
+    return max(SCORE_MIN, min(SCORE_MAX, float(value)))
+
 
 class MLTriageEnvironment(Environment):
     """OpenEnv Environment for ML pipeline debugging.
@@ -146,7 +153,10 @@ class MLTriageEnvironment(Environment):
             self.reset()
 
         if self._episode_done:
-            return self._terminal_observation("Episode already ended. Call reset().")
+            return self._terminal_observation(
+                "Episode already ended. Call reset().",
+                reward=_strict_score(self._state.current_score or SCORE_MIN),
+            )
 
         # Validate action type
         if action.action_type not in VALID_ACTION_TYPES:
@@ -235,27 +245,30 @@ class MLTriageEnvironment(Environment):
     def _compute_final_score(self) -> float:
         """Compute the final graded score using the appropriate grader."""
         if self._task_type == "config":
-            return grade_config_episode(
+            score = grade_config_episode(
                 scenario=self._scenario,
                 issues_found=self._issues_found,
                 step_count=self._state.step_count,
                 max_steps=MAX_STEPS.get("config", 15),
             )
+            return _strict_score(score)
         elif self._task_type == "logs":
-            return grade_log_episode(
+            score = grade_log_episode(
                 scenario=self._scenario,
                 issues_found=self._issues_found,
                 step_count=self._state.step_count,
                 max_steps=MAX_STEPS.get("logs", 15),
             )
+            return _strict_score(score)
         elif self._task_type == "pipeline":
-            return grade_pipeline_episode(
+            score = grade_pipeline_episode(
                 scenario=self._scenario,
                 issues_found=self._issues_found,
                 step_count=self._state.step_count,
                 max_steps=MAX_STEPS.get("pipeline", 20),
             )
-        return 0.0
+            return _strict_score(score)
+        return SCORE_MIN
 
     def _step_observation(self, reward: float, feedback: str) -> MLTriageObservation:
         """Build a mid-episode observation."""

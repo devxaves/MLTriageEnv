@@ -123,7 +123,7 @@ def _grader_sanity() -> bool:
         "for name,t,g in tasks:\n"
         " s=t.scenarios[0]\n"
         " score=float(g(s,[],step_count=1,max_steps=20))\n"
-        " in_range=0.0<=score<=1.0\n"
+        " in_range=0.0<score<1.0\n"
         " print(name,len(t.scenarios),score,in_range)\n"
         " ok=ok and in_range\n"
         "raise SystemExit(0 if ok else 1)\n"
@@ -134,7 +134,7 @@ def _grader_sanity() -> bool:
         print(out.stdout)
         print(out.stderr)
         return False
-    _ok("3+ task families present and grader outputs are in [0.0, 1.0]")
+    _ok("3+ task families present and grader outputs are strictly in (0.0, 1.0)")
     return True
 
 
