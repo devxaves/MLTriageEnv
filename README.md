@@ -640,6 +640,14 @@ python inference.py
 curl https://devxaves-mltriageenv.hf.space/health
 ```
 
+Automated pre-submit script:
+
+```bash
+python scripts/pre_submit.py --env-url https://devxaves-mltriageenv.hf.space
+```
+
+CI mirror: [presubmit workflow](.github/workflows/presubmit.yml) runs tests, `openenv validate`, and Docker build on push/PR.
+
 ---
 
 ## 📈 Performance & Metrics

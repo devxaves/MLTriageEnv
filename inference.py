@@ -73,6 +73,8 @@ def _print_end(success: bool, rewards: List[float]) -> None:
 
 
 def _make_client() -> OpenAI | None:
+    if not HF_TOKEN:
+        return None
     try:
         return OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
     except Exception:
